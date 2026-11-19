@@ -593,7 +593,7 @@ it('drops and counts a GFF3 Parent pointing to an omitted remote-only feature', 
   expect(report).toMatchObject({ droppedAttributes: 1, remoteOnlyOmitted: 1, gff3Written: { annotations: 1 } });
 });
 
-it('resolves a GFF3 relationship when its only emitted target shares an ID with an omitted feature', () => {
+it('drops an ambiguous GFF3 relationship without provenance even if only one target is emitted', () => {
   const record = reopenGenBank(genBank('ATGAAATAA', 'AB123.1:10..20', '', false, 'misc_feature'));
   record.features[0].metadata = { ID: 'shared' };
   record.features.push(
@@ -603,8 +603,34 @@ it('resolves a GFF3 relationship when its only emitted target shares an ID with 
 
   const { text, report } = exportToGff3([record]);
   expect(text).toContain('ID=r.2;Name=target');
-  expect(text).toContain('ID=r.3;Name=dependent;Derives_from=r.2');
-  expect(report).toMatchObject({ droppedAttributes: 0, remoteOnlyOmitted: 1, gff3Written: { annotations: 2 } });
+  expect(text).toContain('ID=r.3;Name=dependent\n');
+  expect(report).toMatchObject({ droppedAttributes: 1, remoteOnlyOmitted: 1, gff3Written: { annotations: 2 } });
+});
+
+it.each([
+  ['Parent', 'ID=x.2;Name=Child;Parent=x.1'],
+  ['Derives_from', 'ID=x.2;Name=Child;Derives_from=x.1'],
+])('resolves %s before omitting a remote-only target and through project reopen', (key, linked) => {
+  const record: SeqRecord = { id: 'x', name: 'x', sequence: 'ATGAAATAACCC', features: [] };
+  const first = parseGFF3([
+    '##gff-version 3',
+    'x\tRefSeq\tgene\t1\t6\t.\t+\t.\tID=g;Name=Original;insdc_remote=1:AB123.1:1..3',
+    `x\tRefSeq\tmRNA\t1\t6\t.\t+\t.\tID=t;${key}=g;Name=Child`,
+  ].join('\n'));
+  const fileA = applyAnnotations([record], first.features, first.details).next[0];
+  const second = parseGFF3('##gff-version 3\nx\tRefSeq\tgene\t7\t12\t.\t+\t.\tID=g;Name=Unrelated');
+  const attachSecond = (target: SeqRecord) => applyAnnotations([target], second.features, second.details).next[0];
+  const withBoth = exportToGff3([reopenProject(attachSecond(fileA))]);
+  expect.soft(withBoth.text).toContain(linked + '\n');
+  expect.soft(withBoth.report.droppedAttributes).toBe(0);
+
+  const [edited] = saveEditedFeature([fileA], 'x', 0, { ...fileA.features[0], locationString: undefined, segments: [] });
+  const { text, report } = exportToGff3([reopenProject(attachSecond(edited))]);
+  expect(text.trimEnd().split('\n').slice(-2)).toEqual([
+    'x\tRefSeq\tmRNA\t1\t6\t.\t+\t.\tID=x.2;Name=Child',
+    'x\tRefSeq\tgene\t7\t12\t.\t+\t.\tID=x.3;Name=Unrelated',
+  ]);
+  expect(report).toMatchObject({ droppedAttributes: 1, remoteOnlyOmitted: 1 });
 });
 
 it('resolves a GFF3 source relationship only for the source represented by the landmark row', () => {

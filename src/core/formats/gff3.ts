@@ -116,6 +116,23 @@ function majorityStrand(parts: FeatureSegment[]): 1 | -1 {
   return parts.filter(part => part.strand === -1).length > parts.length / 2 ? -1 : 1;
 }
 
+function referenceKey(metadata: Record<string, string>, id: string): string {
+  return JSON.stringify([metadata._gffNamespace ?? '', id]);
+}
+
+/** GFF3 IDs are local to their import. Omitted rows still participate in ambiguity checks. */
+function indexReferences(features: BioFeature[], emittedIds: ReadonlyMap<BioFeature, string>): Map<string, string | null> {
+  const references = new Map<string, string | null>();
+  for (const feature of features) {
+    const metadata = feature.metadata;
+    if (!metadata?.ID) continue;
+    const key = referenceKey(metadata, metadata.ID);
+    references.set(key, references.has(key) ? null : emittedIds.get(feature) ?? null);
+    if (metadata._gffNamespace) references.set(referenceKey({}, metadata.ID), null);
+  }
+  return references;
+}
+
 function addQualifiers(
   attrs: Record<string, string | string[]>,
   metadata: Record<string, string>,
@@ -129,7 +146,7 @@ function addQualifiers(
     const values = previous === undefined ? [] : Array.isArray(previous) ? previous : [previous];
     let items = attributeValues(metadata, key);
     if (key === 'Parent' || key === 'Derives_from') {
-      const mapped = items.map(item => oldIds.get(item)).filter((item): item is string => typeof item === 'string');
+      const mapped = items.map(item => oldIds.get(referenceKey(metadata, item))).filter((item): item is string => typeof item === 'string');
       if (mapped.length !== items.length) report.droppedAttributes++;
       items = mapped;
       if (!items.length) continue;
@@ -212,7 +229,10 @@ function appendFeatureRows(
   });
 }
 
-export function exportToGff3(records: SeqRecord[]): ExportResult {
+export function exportToGff3(
+  records: SeqRecord[],
+  include: (record: SeqRecord, feature: BioFeature, index: number) => boolean = () => true,
+): ExportResult {
   const report = emptyReport();
   const lines = ['##gff-version 3'];
   for (const record of records) {
@@ -221,13 +241,13 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
     const landmark = { seqid: id, length, isCircular: record.isCircular };
     const sourceId = `${record.id}.0`;
     const sources = record.features.filter(feature => feature.type === 'source');
-    const referenceIds = new Map<string, string | null>();
-    const originalSourceId = sources[0]?.metadata?.ID;
-    if (originalSourceId) referenceIds.set(originalSourceId, sourceId);
+    const emittedIds = new Map<BioFeature, string>();
+    if (sources[0]) emittedIds.set(sources[0], sourceId);
 
     let number = 0;
     const rows: FeatureRows[] = [];
-    for (const feature of record.features) {
+    for (const [index, feature] of record.features.entries()) {
+      if (feature.type !== 'source' && !include(record, feature, index)) continue;
       const codonStart = feature.metadata?.codon_start;
       if (isCds(feature) && !validCodonStart(codonStart)) {
         report.gff3FeaturesOmitted.push({
@@ -249,9 +269,9 @@ export function exportToGff3(records: SeqRecord[]): ExportResult {
       const segments = split.flat();
       if (!segments.length && !isBetweenBasesSite(feature)) continue;
       rows.push({ feature, featureId, stored, split, segments });
-      const originalId = feature.metadata?.ID;
-      if (originalId) referenceIds.set(originalId, referenceIds.has(originalId) ? null : featureId);
+      emittedIds.set(feature, featureId);
     }
+    const referenceIds = indexReferences(record.features, emittedIds);
 
     lines.push(`##sequence-region ${id} 1 ${length}`);
     const details = detailsForExport(record, report);

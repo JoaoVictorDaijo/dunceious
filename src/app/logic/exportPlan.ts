@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { DetailKey, SeqRecord } from '@/src/domain/bio/types';
+import type { BioFeature, DetailKey, SeqRecord } from '@/src/domain/bio/types';
 import { genBankExportProblem } from '@/src/domain/bio/genbankValidation';
 import { exportToGenBank } from '@/src/core/genbank/serialize';
 import { exportToGff3 } from '@/src/core/formats/gff3';
@@ -67,18 +67,23 @@ export function initialExportSelection(state: ExportSelectionState): { preset: '
 }
 
 /** Filtering uses original feature indices; source information is independent of annotation choices. */
+function matchesExportOptions(record: SeqRecord, feature: BioFeature, index: number, options: ExportOptions): boolean {
+  return (options.types === undefined || options.types.has(feature.type))
+    && (options.matchingKeys === undefined || options.matchingKeys.has(`${record.id}:${index}`));
+}
+
 export function exportRecordsForOptions(records: SeqRecord[], format: HubExportFormat, options: ExportOptions): SeqRecord[] {
   if (format !== 'genbank' && format !== 'gff3') return records;
   // Filtering must not hide the invalid CDS that makes a whole record ineligible.
   return records.map(record => format === 'genbank' && genBankExportProblem(record) ? record : ({ ...record, features: record.features.filter((feature, index) => feature.type === 'source'
-    || (options.types === undefined || options.types.has(feature.type)) && (options.matchingKeys === undefined || options.matchingKeys.has(`${record.id}:${index}`))) }));
+    || matchesExportOptions(record, feature, index, options)) }));
 }
 
 /** Preview and download share this dispatch so the report describes the actual file. */
 export function serializeExport(records: SeqRecord[], format: HubExportFormat, options: ExportOptions = {}): ExportResult {
+  if (format === 'gff3') return exportToGff3(records, (record, feature, index) => matchesExportOptions(record, feature, index, options));
   const chosen = exportRecordsForOptions(records, format, options);
   if (format === 'genbank') return exportToGenBank(chosen);
-  if (format === 'gff3') return exportToGff3(chosen);
   if (format === 'fasta') return exportToFasta(chosen, { residues: options.residues ?? 'original', header: options.header ?? 'id' });
   const report = emptyReport();
   report.translationWarnings = chosen.flatMap(record => record.features

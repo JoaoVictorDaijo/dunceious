@@ -283,6 +283,9 @@ before ID, name/accession and sanitized aliases (`src/app/logic/bioResponse.ts:9
 or residue verification is performed: [#250](https://github.com/JoaoVictorDaijo/dunceious/issues/250).
 Attachment to a linear record refuses a matching landmark with `Is_circular=true` or a wrapped
 feature. The entire attachment is refused before any annotations or source details are applied.
+GFF3 export resolves `Parent` and `Derives_from` within the attachment's ID namespace on the
+record. An omitted or unresolved target is counted in the export report. For features without
+import provenance, an ID shared by multiple features remains ambiguous even if only one is exported.
 **Owner decision open:** exact-ID-only attachment versus an explicitly retained alias mapping with
 specified identity evidence; the standard does not select between them. Whole-length source
 fill and qualifier merging are local policies, separately constrained by source fidelity OP-9;

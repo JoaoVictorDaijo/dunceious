@@ -40,7 +40,7 @@ function readSourceLists(text: string | undefined): Record<string, unknown> {
 function mergeSourceRegion(record: SeqRecord, incoming: BioFeature, warnings: string[]): SeqRecord {
   const metadata = incoming.metadata ?? {};
   const bounds = incoming.segments?.[0];
-  const qualifiers = Object.entries(metadata).filter(([key]) => !detailQualifiers.has(key) && key !== '_gffLists');
+  const qualifiers = Object.entries(metadata).filter(([key]) => !detailQualifiers.has(key) && key !== '_gffLists' && key !== '_gffNamespace');
   if (qualifiers.length === 0 && !bounds?.partialStart && !bounds?.partialEnd) return record;
   const updated = writeDetails(record, {});
   const sourceIndex = updated.features.findIndex(feature => feature.type === 'source');
@@ -52,6 +52,7 @@ function mergeSourceRegion(record: SeqRecord, incoming: BioFeature, warnings: st
   for (const [key, value] of qualifiers) {
     if (Object.hasOwn(merged, key)) continue;
     merged[key] = value;
+    if (key === 'ID' && metadata._gffNamespace !== undefined) merged._gffNamespace = metadata._gffNamespace;
     if (Object.hasOwn(incomingLists, key) && !Object.hasOwn(lists, key)) {
       lists[key] = incomingLists[key];
       listsAdded = true;
@@ -90,6 +91,14 @@ function mergeSourceRegion(record: SeqRecord, incoming: BioFeature, warnings: st
   if (bounds?.partialStart && !keptStart) warnings.push(`${record.id}: Open source region start at base ${bounds.start + 1} could not be kept because no source interval starts there.`);
   if (bounds?.partialEnd && !keptEnd) warnings.push(`${record.id}: Open source region end at base ${bounds.end} could not be kept because no source interval ends there.`);
   return { ...updated, features };
+}
+
+/** A GFF3 attachment adds its own ID namespace to the target record. */
+function annotationNamespace(record: SeqRecord): string {
+  const occupied = new Set(record.features.map(feature => feature.metadata?._gffNamespace));
+  let namespace = 1;
+  while (occupied.has(String(namespace))) namespace++;
+  return String(namespace);
 }
 
 /**
@@ -167,8 +176,16 @@ export function applyAnnotations(
     }
     const index = prev.indexOf(matches[0]);
     let record = next[index];
-    const items = [...(annotations[id] ?? [])];
-    const candidate = details[id];
+    const namespace = annotationNamespace(record);
+    const withNamespace = (feature: BioFeature): BioFeature => {
+      const metadata = feature.metadata;
+      return metadata && (metadata.ID || metadata.Parent || metadata.Derives_from)
+        ? { ...feature, metadata: { ...metadata, _gffNamespace: namespace } }
+        : feature;
+    };
+    const items = (annotations[id] ?? []).map(item => !('data' in item) && item.metadata?._gffPhases !== undefined ? withNamespace(item) : item);
+    const source = details[id];
+    const candidate = source && { ...source, feature: withNamespace(source.feature) };
     if (!record.isCircular) {
       const landmark = [candidate?.feature, ...items].find(feature => feature && !('data' in feature)
         && (feature.type === 'region' || feature.type === 'SO:0000001')

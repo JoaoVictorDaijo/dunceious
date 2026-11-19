@@ -143,6 +143,20 @@ it('does not replace an excluded local GFF3 parent with a reused ID from another
   expect(report.droppedAttributes).toBe(1);
 });
 
+it('reports an ambiguous local GFF3 parent even if the selection exports only one candidate', () => {
+  const input: SeqRecord = { id: 's', name: 's', sequence: 'ATGAAATAG', features: [
+    { type: 'gene', name: 'first', start: 0, end: 3, strand: 1, metadata: { ID: 'g' } },
+    { type: 'gene', name: 'second', start: 3, end: 6, strand: 1, metadata: { ID: 'g' } },
+    { type: 'mRNA', name: 'child', start: 0, end: 3, strand: 1, metadata: { ID: 't', Parent: 'g' } },
+  ] };
+  const options = { matchingKeys: new Set(['s:1', 's:2']) };
+  expect(serializeExport([input], 'gff3', options).text.trimEnd().split('\n').slice(-2)).toEqual([
+    's\t.\tgene\t4\t6\t.\t+\t.\tID=s.1;Name=second',
+    's\t.\tmRNA\t1\t3\t.\t+\t.\tID=s.2;Name=child',
+  ]);
+  expect(describeExport([input], 'gff3', options).report.droppedAttributes).toBe(1);
+});
+
 
 it('preserves origin-crossing GenBank joins through export filtering and re-import', () => {
   const record = writeDetails(createOriginCrossingRecord(), { organism: 'Hepatitis B virus' });
