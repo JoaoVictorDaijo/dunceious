@@ -25,8 +25,28 @@ import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { SeqRecord, BioFeature, SelectionArea } from '@/src/domain/bio/types';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
 import { getOriginalPos } from '@/src/domain/bio';
+import { isUndrawnProteinBond } from '@/src/domain/bio/proteinBond';
 
-function refuseEmptyLocationEdit(feature: BioFeature, addLog: (message: string) => void): boolean {
+export function undrawnBondLocationEdit(record: SeqRecord | undefined, featureIndex: number, feature: BioFeature): 'unchanged' | 'changed' | undefined {
+  const previous = record?.features[featureIndex];
+  if (record?.moleculeType !== 'protein' || !previous || !isUndrawnProteinBond(previous)) return undefined;
+  return previous.locationString === feature.locationString && previous.start === feature.start
+    && previous.end === feature.end && previous.strand === feature.strand
+    && getFeatureStrand(previous) === getFeatureStrand(feature)
+    && previous.operator === feature.operator && previous.betweenBases === feature.betweenBases
+    && JSON.stringify(previous.segments) === JSON.stringify(feature.segments)
+    && JSON.stringify(previous.remoteParts) === JSON.stringify(feature.remoteParts)
+    && JSON.stringify(previous.writtenOrder) === JSON.stringify(feature.writtenOrder)
+    ? 'unchanged' : 'changed';
+}
+
+function refuseLocationEdit(record: SeqRecord, featureIndex: number, feature: BioFeature, addLog: (message: string) => void): boolean {
+  const bondEdit = undrawnBondLocationEdit(record, featureIndex, feature);
+  if (bondEdit === 'unchanged') return false;
+  if (bondEdit === 'changed') {
+    addLog(`WARNING: ${feature.name}: the imported bond location is read-only; Save refused`);
+    return true;
+  }
   if (feature.segments?.length !== 0 || feature.remoteParts?.length) return false;
   addLog(`WARNING: ${feature.name}: a location must contain at least one segment; Save refused`);
   return true;
@@ -149,7 +169,7 @@ export function saveEditedFeature(
   addLog: (message: string) => void = () => {},
 ): SeqRecord[] {
   return records.map(record => {
-    if (record.id !== recordId || refuseEmptyLocationEdit(feature, addLog)) return record;
+    if (record.id !== recordId || refuseLocationEdit(record, featureIndex, feature, addLog)) return record;
     const newFeatures = [...record.features];
     const previous = record.features[featureIndex];
     const hubEdit = featureIndex === -1 || previous?.hubEdit === 'added' ? 'added' : 'edited';

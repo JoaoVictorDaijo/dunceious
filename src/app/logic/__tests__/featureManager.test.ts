@@ -278,6 +278,17 @@ it.each(['CDS', 'misc_feature'])('refuses an empty-part %s edit without changing
   expect(log).toHaveBeenCalledExactlyOnceWith('WARNING: protected: a location must contain at least one segment; Save refused');
 });
 
+it('refuses replacing an undrawn bond location with a placed interval', () => {
+  const bond = feat({ type: 'Bond', name: 'Bond', start: 0, end: 0, segments: [], locationString: 'bond(<2,6)' });
+  const record = rec({ id: 'PROT', moleculeType: 'protein', sequence: 'MCAAVC', features: [bond] });
+  const log = vi.fn();
+  const [saved] = saveEditedFeature([record], record.id, 0, {
+    ...bond, start: 1, end: 2, segments: [{ start: 1, end: 2 }], locationString: undefined,
+  }, log);
+  expect(saved).toBe(record);
+  expect(log).toHaveBeenCalledExactlyOnceWith('WARNING: Bond: the imported bond location is read-only; Save refused');
+});
+
 it.each([0, -1])('keeps a remote-only location saveable at feature index %i', featureIndex => {
   const original = feat({ name: 'remote', segments: [{ start: 0, end: 5 }],
     remoteParts: [{ accession: 'AB123.1', start: 10, end: 16, strand: 1, index: 1 }] });

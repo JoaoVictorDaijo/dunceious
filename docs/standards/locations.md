@@ -311,4 +311,6 @@ These locations supply no local geometry, including for any other positions in a
 descriptor. Import issues one notice per record naming the undrawn bonds. Selection exports
 omit them with the same named notice as other omitted bonds. GFF3 export omits and names them
 because a GFF3 row requires a position. Project reopen refuses any stored anchor that conflicts
-with the descriptor's empty geometry and names the bond. Nucleotide import refuses bond locations.
+with the descriptor's empty geometry and names the bond. The metadata editor keeps the imported
+location read-only and saves qualifier and other metadata edits with the descriptor unchanged.
+Nucleotide import refuses bond locations.
