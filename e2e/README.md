@@ -17,6 +17,20 @@ workers. Each case attaches elapsed time and main-thread long-task observations;
 these include browser automation and rendering costs, so they are diagnostic
 measurements rather than fixed performance thresholds.
 
+`sessionTimings.spec.ts` is skipped unless `SESSION_TIMINGS=1` is set. It times the steps of one
+session (loading sequences, attaching GFF3 annotations, applying a pre-aligned FASTA, opening the
+viewport, one search per mode, and arrow-key pan steps at maximum zoom) on the T7 and T4 phage sets and on synthetic
+alignments of 10, 50 and 100 sequences of 30 kb. Each step runs from the DOM event that starts it to
+the second animation frame after the last file read or worker reply. It writes one JSON file per data set, with
+every run, the browser version and the machine, to `SESSION_TIMINGS_OUT` (default
+`test-results/session-timings`, which the next Playwright run clears). `SESSION_TIMINGS_RUNS` sets
+the repetitions (default 5). The numbers describe one machine and browser; they are not thresholds.
+
+```sh
+pnpm build
+SESSION_TIMINGS=1 SESSION_TIMINGS_OUT=/absolute/path pnpm test:e2e:run --project=chromium e2e/sessionTimings.spec.ts
+```
+
 To include a local directory of additional GenBank files (such as `TESTE`), set
 `PLAYWRIGHT_SEQUENCE_DIR` to its absolute path. Each file runs separately, followed
 by a combined session; the directory must contain compatible molecule types:
