@@ -150,6 +150,19 @@ export function applyParseSuccess(
   return { next: [...prev, ...newRecords], count: newRecords.length, idMap };
 }
 
+function topologyRefusal(
+  id: string, record: SeqRecord, items: (BioFeature | QuantitativeTrack)[], source?: BioFeature,
+): string | undefined {
+  if (record.isCircular) return undefined;
+  const landmark = [source, ...items].some(feature => feature && !('data' in feature)
+    && (feature.type === 'region' || feature.type === 'SO:0000001')
+    && feature.start === 0 && feature.end === record.sequence.length && feature.metadata?.Is_circular === 'true');
+  if (landmark) return `GFF3 landmark ${id} declares Is_circular=true, but sequence ${record.id} is linear.`;
+  const wrapped = items.find((item): item is BioFeature => !('data' in item)
+    && (item.start > item.end || !!item.segments?.some(part => part.start > part.end)));
+  if (wrapped) return `GFF3 landmark ${id} has a wrapped feature ${wrapped.name}, but sequence ${record.id} is linear.`;
+}
+
 /** Batch ownership takes precedence over workspace aliases; ambiguous matches are refused. */
 export function applyAnnotations(
   prev: SeqRecord[],
@@ -186,18 +199,8 @@ export function applyAnnotations(
     const items = (annotations[id] ?? []).map(item => !('data' in item) && item.metadata?._gffPhases !== undefined ? withNamespace(item) : item);
     const source = details[id];
     const candidate = source && { ...source, feature: withNamespace(source.feature) };
-    if (!record.isCircular) {
-      const landmark = [candidate?.feature, ...items].find(feature => feature && !('data' in feature)
-        && (feature.type === 'region' || feature.type === 'SO:0000001')
-        && feature.start === 0 && feature.end === record.sequence.length && feature.metadata?.Is_circular === 'true');
-      const wrapped = items.find((item): item is BioFeature => !('data' in item)
-        && (item.start > item.end || !!item.segments?.some(part => part.start > part.end)));
-      const conflict = landmark ? 'declares Is_circular=true' : wrapped ? `has a wrapped feature ${wrapped.name}` : undefined;
-      if (conflict) {
-        const refusal = `GFF3 landmark ${id} ${conflict}, but sequence ${record.id} is linear.`;
-        return { next: prev, totalAdded: 0, unmatched: [], warnings: [], refusal };
-      }
-    }
+    const conflict = topologyRefusal(id, record, items, candidate?.feature);
+    if (conflict) return { next: prev, totalAdded: 0, unmatched: [], warnings: [], refusal: conflict };
     if (candidate) {
       if (candidate.start === 0 && candidate.end === record.sequence.length) {
         const current = readDetails(record);

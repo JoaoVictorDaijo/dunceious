@@ -599,17 +599,6 @@ it('refuses a plain circular landmark on a linear sequence and attaches it to a 
   });
 });
 
-it('refuses a wrapped GFF3 feature on a linear target even when the source region length differs', () => {
-  const record: SeqRecord = { id: 'x', name: 'x', sequence: 'AGCTGACCTGAAA', features: [] };
-  const { features, details } = parseGFF3([
-    'x\t.\tregion\t1\t12\t.\t+\t.\tID=x;gbkey=Src;Is_circular=true',
-    'x\t.\tgene\t7\t15\t.\t+\t.\tID=wrap',
-  ].join('\n'));
-  const result = applyAnnotations([record], features, details);
-  expect(result).toMatchObject({ totalAdded: 0, refusal: 'GFF3 landmark x has a wrapped feature wrap, but sequence x is linear.' });
-  expect(result.next[0]).toBe(record);
-});
-
 it('drops and counts a GFF3 Parent pointing to an omitted remote-only feature', () => {
   const record = reopenGenBank(genBank('ATGAAATAA', 'AB123.1:10..20', '', false, 'misc_feature'));
   record.features[0].metadata = { ID: 'remote' };

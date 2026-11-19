@@ -414,6 +414,17 @@ it('keeps a short circular Src candidate as an annotation without changing topol
   expect(result.next[0].features[0].type).toBe('region');
 });
 
+it('refuses a wrapped GFF3 feature on a linear target even when the source region length differs', () => {
+  const record: SeqRecord = { id: 'x', name: 'x', sequence: 'AGCTGACCTGAAA', features: [] };
+  const { features, details } = parseGFF3([
+    'x\t.\tregion\t1\t12\t.\t+\t.\tID=x;gbkey=Src;Is_circular=true',
+    'x\t.\tgene\t7\t15\t.\t+\t.\tID=wrap',
+  ].join('\n'));
+  const result = applyAnnotations([record], features, details);
+  expect(result).toMatchObject({ totalAdded: 0, refusal: 'GFF3 landmark x has a wrapped feature wrap, but sequence x is linear.' });
+  expect(result.next[0]).toBe(record);
+});
+
 it('treats GFF-filled historical details as file data and keeps them in every interchange export', () => {
   const imported = applyFastaResponse([], [{ id: 'local', name: 'local', sequence: 'ACGT', features: [] }], false, 'local.fa');
   const gff = parseGFF3('local\ts\tregion\t1\t4\t.\t+\t.\tgbkey=Src;geo_loc_name=USSR;collection_date=March%201914');
