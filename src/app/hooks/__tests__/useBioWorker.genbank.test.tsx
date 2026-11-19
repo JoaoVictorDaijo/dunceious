@@ -121,24 +121,24 @@ ORIGIN
 
 it.each([['the worker notices', true], ['the per-CDS fallback', false]])('logs code-break notices in record and feature order from %s', async (_name, withNotices) => {
   const h = setup();
-  const record = (id: string, qualifiers: string) => `LOCUS       ${id} 9 bp DNA linear
-ACCESSION   ${id}
-VERSION     ${id}.1
+  const record = (id: string, features: string) => `LOCUS       ${id} 9 bp DNA linear
 FEATURES             Location/Qualifiers
-     CDS             1..9
-${qualifiers}ORIGIN
+${features}ORIGIN
         1 atgtgataa
 //
 `;
-  const content = record('First', '                     /transl_except=(pos:4..6,aa:OTHER)\n')
-    + record('Second', '                     /transl_table=999\n                     /transl_except=(pos:4..6,aa:Sec)\n');
+  const cds = (name: string, qualifiers: string) => `     CDS             1..9\n                     /gene="${name}"\n${qualifiers}`;
+  const content = record('First', cds('a', '                     /transl_except=(pos:4..6,aa:OTHER)\n')
+    + cds('b', '                     /transl_table=999\n                     /transl_except=(pos:4..6,aa:Sec)\n'))
+    + record('Second', cds('c', '                     /transl_except=(pos:7..9,aa:OTHER)\n'));
   const request = h.send(content, 'codebreaks.gb');
   const response = handleBioMessage(h.worker.requests[request.index]);
   if (response.type !== 'PARSE_SUCCESS') throw new Error('Expected the code breaks to be importable');
-  if (withNotices) expect(response.codeBreakNotices).toHaveLength(2);
+  if (withNotices) expect(response.codeBreakNotices).toHaveLength(3);
   else delete response.codeBreakNotices;
   act(() => h.worker.release(request.index, response));
   await request.promise;
-  expect(h.log).toHaveBeenCalledWith('WARNING: CDS CDS, /transl_except occurrence 0 "(pos:4..6,aa:OTHER)": applied: OTHER/Xaa requires an explanatory note; '
-    + 'CDS CDS, /transl_except occurrence 0 "(pos:4..6,aa:Sec)": translation unavailable: invalid-code');
+  expect(h.log).toHaveBeenCalledWith('WARNING: CDS a, /transl_except occurrence 0 "(pos:4..6,aa:OTHER)": applied: OTHER/Xaa requires an explanatory note; '
+    + 'CDS b, /transl_except occurrence 0 "(pos:4..6,aa:Sec)": translation unavailable: invalid-code; '
+    + 'CDS c, /transl_except occurrence 0 "(pos:7..9,aa:OTHER)": applied: OTHER/Xaa requires an explanatory note');
 });

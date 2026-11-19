@@ -24,6 +24,7 @@ import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import type { HubFilters } from '../hubModel';
 import { featureCoordPatch, featureLength } from '../viewModel';
 import { buildFeatureGroups, countFeatureGroups, featureIdentity } from '../featureComparison';
+import { handleBioMessage } from '@/src/workers/handlers/bio';
 
 const f = (name = 'S', type = 'CDS', length = 100, metadata: Record<string, string> = {}): BioFeature => ({ name, type, start: 10, end: 10 + length, strand: 1, metadata });
 const r = (id: string, features: BioFeature[], organism = 'virus', patch: Partial<SeqRecord> = {}): SeqRecord => ({
@@ -218,4 +219,27 @@ it('uses the first biological start for joined feature medians and does not flag
   }
   expect(groups([joined]).find(group => group.identity === 'pol')?.medianStart).toBe(2426);
   expect(groups([joined]).find(group => group.identity === 'env')?.medianStart).toBe(2991);
+});
+
+it('orders tied rows by their qualifiers, whatever their translation caches hold', () => {
+  const response = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'tie.gb', content: `LOCUS       r 9 bp DNA linear
+FEATURES             Location/Qualifiers
+     CDS             1..9
+                     /transl_table=26
+     CDS             1..9
+                     /transl_table=10
+ORIGIN
+        1 ctgaaataa
+//
+` });
+  if (response.type !== 'PARSE_SUCCESS') throw new Error('Expected the tie fixture to import');
+  const [record] = response.records;
+  const tables = (input: SeqRecord) => buildFeatureGroups([input], filters(), false)[0].rows.map(row => row.feature.metadata?.transl_table);
+  expect(tables(record)).toEqual(['10', '26']);
+  const [first, second] = record.features;
+  const swapped = { ...record, features: [
+    { ...first, metadata: { ...first.metadata, _translationCheck: second.metadata!._translationCheck } },
+    { ...second, metadata: { ...second.metadata, _translationCheck: first.metadata!._translationCheck } },
+  ] };
+  expect(tables(swapped)).toEqual(['10', '26']);
 });

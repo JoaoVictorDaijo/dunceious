@@ -182,12 +182,19 @@ interface CompactCodons {
   /** `[codon, set]` where the codon's ordinary or contextual set differs from its effective set. */
   ordinary: [number, string][];
   contextual: [number, string][];
-  /** How many of `indices` the result's own `alignedIndices` holds. */
+  /** How many decoded alignment positions, from the start, the result's own `alignedIndices` holds. */
   resultIndices: number;
 }
 
 const OK_KEYS = 'status,codons,residues,possible,internalStops,threePrimeIndeterminate,alignedIndices';
-const codonKeys = (strands: boolean) => `codonIndex,proteinIndex,fragment,triplet,alignedIndices,${strands ? 'baseStrands,' : ''}ordinary,contextual,effective,terminalRemoved`;
+const CODON_KEYS = ['codonIndex', 'proteinIndex', 'fragment', 'triplet', 'alignedIndices', 'ordinary', 'contextual', 'effective', 'terminalRemoved'];
+const STRANDED_CODON_KEYS = [...CODON_KEYS.slice(0, 5), 'baseStrands', ...CODON_KEYS.slice(5)];
+
+function hasKeys(value: object, keys: string[]): boolean {
+  let k = 0;
+  for (const key in value) if (key !== keys[k++]) return false;
+  return k === keys.length;
+}
 
 function encodeRuns(values: number[]): number[] {
   const runs: number[] = [];
@@ -219,8 +226,7 @@ function compactCodons(result: OkTranslation): CompactCodons | undefined {
   const removed = n - possible.length;
   if (removed !== 0 && removed !== 1) return undefined;
   const strands: (1 | -1)[] | undefined = codons[0]?.baseStrands ? [] : undefined;
-  // conceptualTranslation builds every codon from one object literal, so the ends show the shape.
-  if (n && [codons[0], codons[n - 1]].some(codon => Object.keys(codon).join() !== codonKeys(!!strands))) return undefined;
+  const codonKeys = strands ? STRANDED_CODON_KEYS : CODON_KEYS;
   let bases = '';
   const indices: number[] = [];
   const ordinary: [number, string][] = [];
@@ -230,7 +236,7 @@ function compactCodons(result: OkTranslation): CompactCodons | undefined {
     const last = i === n - 1;
     const effective = i < possible.length ? possible[i] : '*';
     const { fragment, alignedIndices, baseStrands } = codon;
-    if (codon.codonIndex !== i || codon.proteinIndex !== (removed && last ? undefined : i) || codon.effective !== effective
+    if (!hasKeys(codon, codonKeys) || codon.codonIndex !== i || codon.proteinIndex !== (removed && last ? undefined : i) || codon.effective !== effective
       || codon.terminalRemoved !== (effective === '*' && last) || typeof fragment !== 'string' || codon.triplet !== fragment.padEnd(3, 'N')
       || typeof codon.ordinary !== 'string' || typeof codon.contextual !== 'string'
       || (last ? fragment.length > 3 || alignedIndices.length > 3 : fragment.length !== 3 || alignedIndices.length !== 3)
@@ -311,7 +317,7 @@ export function translationWarning(records: SeqRecord[], { includeMismatches = t
   for (const record of records) for (const f of record.features) {
     if (!isCds(f)) continue;
     const checked = checkedTranslation(f, record);
-    notices.push(...codeBreakNotices(checked));
+    for (const notice of codeBreakNotices(checked)) notices.push(notice);
     if (includeMismatches && hasTranslationMismatch(f, checked)) count++;
   }
   if (count) notices.push(`${count} CDS have a /translation that differs from their DNA`);

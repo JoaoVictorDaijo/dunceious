@@ -35,12 +35,35 @@ it.each<[string, string, BioFeature, boolean?]>([
   ['mixed interval strands', 'ATGTGATAGTTATCA', cds([{ start: 0, end: 9, strand: 1 }, { start: 9, end: 15, strand: -1 }], 1, { operator: 'join' })],
   ['an origin-spanning join', 'AAATAAATG', cds([{ start: 6, end: 9 }, { start: 0, end: 6 }], 1, { operator: 'join' }), true],
   ['an applied code break and a stored protein', 'ATGTGATAA', cds([{ start: 0, end: 9 }], 1, { translationExceptions: ['(pos:4..6,aa:Sec)'], metadata: { translation: 'MUK' } })],
+  ['a two-base last codon', 'ATGAAACC', cds([{ start: 0, end: 8 }])],
+  ['an overlapping join sharing one base', 'ATGAATAA', cds([{ start: 0, end: 3 }, { start: 2, end: 8 }], 1, { operator: 'join' })],
+  ['a short terminal TERM code break', 'ATGAAATA', cds([{ start: 0, end: 8 }], 1, { translationExceptions: ['(pos:7..8,aa:TERM)'] })],
 ])('reads back the full cached result for %s', (_name, sequence, feature, isCircular = false) => {
   const record: SeqRecord = { id: 'r', name: 'r', sequence, moleculeType: 'dna', isCircular, features: [feature] };
   const conceptual = conceptualTranslation(feature, record);
   expect(conceptual.status).toBe('ok');
   const stored = storedTranslation(feature);
   const comparison = stored && conceptual.status === 'ok' ? compareTranslation(stored, conceptual) : undefined;
-  const read = checkedTranslation(checkTranslation(feature, record), record);
-  expect(JSON.stringify(read)).toBe(JSON.stringify({ ...conceptual, comparison }));
+  const checked = checkTranslation(feature, record);
+  expect(JSON.parse(checked.metadata!._translationCheck)).toHaveProperty('codonProvenance');
+  expect(JSON.stringify(checkedTranslation(checked, record))).toBe(JSON.stringify({ ...conceptual, comparison }));
+});
+
+const codon = (codonIndex: number, fragment: string, alignedIndices: number[], effective: string, terminalRemoved = false) => ({
+  codonIndex, ...(terminalRemoved ? {} : { proteinIndex: codonIndex }), fragment, triplet: fragment.padEnd(3, 'N'), alignedIndices,
+  ordinary: effective, contextual: effective, effective, terminalRemoved,
+});
+
+it.each([
+  ['a two-base last codon', 'ATGAAACC', cds([{ start: 0, end: 8 }]), {
+    status: 'ok', codons: [codon(0, 'ATG', [0, 1, 2], 'M'), codon(1, 'AAA', [3, 4, 5], 'K'), codon(2, 'CC', [6, 7], 'P')],
+    residues: 'MKP', possible: ['M', 'K', 'P'], internalStops: [], threePrimeIndeterminate: false, alignedIndices: [0, 1, 2, 3, 4, 5, 6, 7],
+  }],
+  ['an overlapping join sharing one base', 'ATGAATAA', cds([{ start: 0, end: 3 }, { start: 2, end: 8 }], 1, { operator: 'join' }), {
+    status: 'ok', codons: [codon(0, 'ATG', [0, 1, 2], 'M'), codon(1, 'GAA', [2, 3, 4], 'E'), codon(2, 'TAA', [5, 6, 7], '*', true)],
+    residues: 'ME', possible: ['M', 'E'], internalStops: [], threePrimeIndeterminate: false, alignedIndices: [0, 1, 2, 2, 3, 4],
+  }],
+])('reads back the codons of %s as stated by hand', (_name, sequence, feature, expected) => {
+  const record: SeqRecord = { id: 'r', name: 'r', sequence, moleculeType: 'dna', isCircular: false, features: [feature] };
+  expect(JSON.stringify(checkedTranslation(checkTranslation(feature, record), record))).toBe(JSON.stringify(expected));
 });

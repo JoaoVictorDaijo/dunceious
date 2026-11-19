@@ -54,7 +54,7 @@ function routeBioMessage(msg: BioWorkerRequest): BioWorkerResponse {
       parsed.records = parsed.records.map((record, index) => {
         const features = record.features.map(feature => {
           const { feature: checked, result } = checkTranslationWithResult(feature, record);
-          if (result) notices.push(...codeBreakNotices(result));
+          if (result) for (const notice of codeBreakNotices(result)) notices.push(notice);
           if (result && hasTranslationMismatch(checked, result)) {
             parsed.findings.push({
               tier: 'warning', code: 'translation-mismatch', record: { name: record.id, index: index + 1 },

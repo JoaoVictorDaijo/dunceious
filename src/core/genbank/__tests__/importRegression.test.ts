@@ -21,7 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import { extractFeatureSequence } from '@/src/domain/bio/sequence';
-import { conceptualTranslation } from '@/src/domain/bio/translation';
+import { conceptualTranslation, translationWarning } from '@/src/domain/bio/translation';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import { exportToGenBank, parseGenBank } from '../index';
 
@@ -109,6 +109,7 @@ it.each([
   ['aßt', '4 bp', 'ß', 2],
   ['aıt', '3 aa', 'ı', 2],
   ['aﬀt', '4 aa', 'ﬀ', 2],
+  ['ac\u{1F600}t', '5 bp', '\u{1F600}', 3],
 ])('refuses original non-ASCII ORIGIN residue in %s', (sequence, size, invalid, position) => {
   const response = importGenBank(genBank(`X ${size}`, sequence));
   expect(response).toMatchObject({
@@ -193,6 +194,18 @@ it.each([['LF', '\n'], ['CRLF', '\r\n']])('numbers finding lines from the start 
   if (response.type !== 'PARSE_REFUSED') throw new Error('Expected the backwards intervals to be refused');
   expect(response.findings.filter(finding => finding.line !== undefined).map(({ code, record, line }) => ({ code, record: record?.index, line })))
     .toEqual([{ code: 'location-out-of-range', record: 2, line: 8 }, { code: 'location-out-of-range', record: 3, line: 15 }]);
+});
+
+it('lists the code-break notices of a CDS with 130,000 /transl_except qualifiers', () => {
+  const count = 130_000;
+  const qualifier = '                     /transl_except=(pos:4..6,aa:OTHER)\n';
+  const response = importGenBank(genBank('X 9 bp DNA', 'ATGTGATAA', `     CDS             1..9\n${qualifier.repeat(count)}`));
+  expect(response.type).toBe('PARSE_SUCCESS');
+  if (response.type !== 'PARSE_SUCCESS') throw new Error('Expected the repeated code breaks to import');
+  const notice = (occurrence: number) => `CDS CDS, /transl_except occurrence ${occurrence} "(pos:4..6,aa:OTHER)": applied: OTHER/Xaa requires an explanatory note`;
+  expect(response.codeBreakNotices).toHaveLength(count);
+  expect([response.codeBreakNotices![0], response.codeBreakNotices![count - 1]]).toEqual([notice(0), notice(count - 1)]);
+  expect(translationWarning(response.records, { includeMismatches: false })).toBe(`WARNING: ${response.codeBreakNotices!.join('; ')}`);
 });
 
 it('names the line of a misplaced feature key', () => {
