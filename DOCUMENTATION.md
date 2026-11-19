@@ -30,7 +30,7 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
 - **Interactive Viewport**:
   - **Unified Scroll**: Synchronized vertical scrolling for sequence labels and alignment data using `react-window` for virtualization.
   - **Sticky Headers**: Sequence names remain visible while scrolling horizontally.
-  - **Semantic Zoom**: Variable detail levels (from global mismatch density to individual nucleotide bases and amino acid translations).
+  - **Semantic Zoom**: Variable detail levels (from one sampled residue per screen pixel to individual nucleotide bases and amino acid translations).
   - **Interaction Modes**: Toggle between **Pan** (navigation) and **Select** (region highlighting).
   - **Focus**: From the Annotation Hub or an annotation's details, the view flies to the feature's whole extent (every part of a joined feature) and labels it with its name and length. Focus from the Hub offers a **Back to Annotation Hub** pill that returns to the same row, marked *Last focused*.
 - **Annotation management**:
@@ -64,9 +64,9 @@ Dunceious is a high-performance, web-based bioinformatics tool designed for Mult
 - **Framework**: React 19 (Hooks-based architecture).
 - **Language**: TypeScript 5 (`strictNullChecks`, checked via `tsc --noEmit`).
 - **Visualization**: D3.js 7 for coordinate math, SVG and canvas rendering.
-- **Styling**: Tailwind CSS 3, compiled at build time (self-hosted, no CDN).
+- **Styling**: Tailwind CSS 4, compiled at build time (self-hosted, no CDN).
 - **Icons and fonts**: Font Awesome 6, Inter and JetBrains Mono (self-hosted, no CDN).
-- **Build Tool**: Vite 6 (dev server on port 3000, HMR enabled).
+- **Build Tool**: Vite 8 (dev server on port 3000, HMR enabled).
 
 ### 3.2 Layers
 
@@ -75,7 +75,7 @@ All source lives under `src/`, and imports only point down the stack `domain ←
 - **`src/domain/bio/`** — pure biology model and algorithms: coordinate transposition, consensus, intervals, sequence utilities (translation, reverse complement, molecule type), ribosomal frameshifts, and the canonical types.
 - **`src/core/`** — format parsers and serializers (`genbank/`, `formats/` for FASTA and BED/GFF3), search primitives (`search/`), and the EMBL-EBI contract model (`alignment/`, no network).
 - **`src/workers/`** — the typed message contracts (`protocol.ts`), the thin `bio.worker.ts` / `search.worker.ts` / `localSearch.worker.ts` shells and their `handlers/` bodies.
-- **`src/app/`** — the React application: `App.tsx` (composition root), `hooks/` (worker bridges, file handling, features, remote alignment), `components/` (sidebar, nav, Annotation Hub, modals), `viewer/` (the genome viewer) and `lib/` (downloads and the EMBL-EBI client).
+- **`src/app/`** — the React application: `App.tsx` (composition root) with `workbench/` (the hooks and components it composes), `hooks/` (worker bridges, file handling, features, remote alignment), `components/` (sidebar, nav, Annotation Hub, modals), `viewer/` (the genome viewer) and `lib/` (downloads and the EMBL-EBI client).
 
 ## 4. Technical Implementation Details
 

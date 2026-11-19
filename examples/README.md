@@ -4,11 +4,14 @@ Sample GenBank files for exploring Dunceious. Load any of them through the
 file picker in the sidebar (**Upload**), which accepts `.gb`, `.genbank`,
 `.fasta`, and `.fa`.
 
-Each file is an [NCBI RefSeq](https://www.ncbi.nlm.nih.gov/refseq/) record.
-RefSeq entries are produced by the U.S. National Center for Biotechnology
+Every record except the SARS-CoV-2 variants is an [NCBI RefSeq](https://www.ncbi.nlm.nih.gov/refseq/)
+record. RefSeq entries are produced by the U.S. National Center for Biotechnology
 Information and are **not subject to copyright** ([NCBI usage
 policy](https://www.ncbi.nlm.nih.gov/home/about/policies/)), so they can be
-redistributed freely.
+redistributed freely. The three variant records in
+`nucleotide/sars-cov-2-variants/variants.gb` (OL461693, OR279985, OR323867) are
+INSDC GenBank submissions instead; the [licence section of their
+README](nucleotide/sars-cov-2-variants/README.md#licence) covers their terms of use.
 
 > **Session type:** a workspace holds **one** molecule type at a time — either
 > **nucleotide** (DNA/RNA) or **peptide** (protein). Dunceious infers the type
@@ -95,7 +98,7 @@ mutations and short deletions within one. See its
 
 | File | Accession | Size | Highlights |
 |------|-----------|------|------------|
-| `arabidopsis-chloroplast-NC_000932.gb` | [NC_000932](https://www.ncbi.nlm.nih.gov/nuccore/NC_000932.1) | 154,478 bp, circular | 259 annotations (gene, CDS, tRNA, rRNA); both strands; spliced/multi-exon `join()` glyphs including the trans-spliced `rps12`. The only circular genome here. |
+| `arabidopsis-chloroplast-NC_000932.gb` | [NC_000932](https://www.ncbi.nlm.nih.gov/nuccore/NC_000932.1) | 154,478 bp, circular | 259 annotations (gene, CDS, tRNA, rRNA); both strands; spliced/multi-exon `join()` glyphs including the trans-spliced `rps12`. One of the two circular genomes here, with the human mitochondrion. |
 | `influenza-a-pr8-8segments.gb` | [NC_002016–NC_002023](https://www.ncbi.nlm.nih.gov/nuccore/NC_002023.1) | 8 records, ~14 kb | Eight segments in **one file** — demonstrates the Database Hub's multi-sequence list. Includes spliced (`join`) CDS for M2/NS2. |
 | `human-mitochondrion-NC_012920.gb` | [NC_012920](https://www.ncbi.nlm.nih.gov/nuccore/NC_012920.1) | 16,569 bp, circular | The Cambridge Reference Sequence — 37 densely packed genes (13 CDS, 22 tRNA, 2 rRNA) plus the D-loop, on a non-standard genetic code. |
 

@@ -22,7 +22,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FRAMESHIFT_POSITION, GENE1_RESIDUES, GENE1_START, GENES, GENOME_LENGTH, PHI10_PROMOTERS, PROMOTER_HITS, PROMOTER_MOTIF,
 } from '../greeterContent';
-import { BASE_SPAN, codonAt, geneAt, regionName, windowAround } from '../genomeZoom';
+import { BASE_SPAN, codonAt, codonInGene, geneAt, regionName, windowAround } from '../genomeZoom';
 import { T7_GENOME } from '../t7Sequence';
 
 // The greeter's facts must match the genomes the workbench ships as examples.
@@ -40,7 +40,7 @@ function features(record: string): Feature[] {
   return table.split(/\n {5}(?=\S)/).slice(1).map((block) => {
     const [type, ...rest] = block.split(/\s+/);
     const flat = rest.join(' ').replace(/\s+/g, ' ');
-    const qualifiers = Object.fromEntries([...flat.matchAll(/\/(\w+)="([^"]*)"/g)].map((m) => [m[1], m[2]]));
+    const qualifiers = Object.fromEntries([...flat.matchAll(/\/(\w+)=(?:"([^"]*)"|(\d+))/g)].map((m) => [m[1], m[2] ?? m[3]]));
     return { type, location: block.split('\n')[0].slice(type.length).trim(), qualifiers };
   });
 }
@@ -143,11 +143,36 @@ describe('codonAt', () => {
     }
   });
 
-  it('shows an alternative start codon as its literal residue', () => {
-    // Gene 19 starts on GTG: GenBank's /translation writes the initiator as M.
+  it('shows the complete gene 19 initiator as methionine', () => {
     expect(at(37_370, 3)).toBe('GTG');
     expect(translationOf(named('19'))[0]).toBe('M');
-    expect(codonAt(37_370)).toMatchObject({ number: 1, residue: 'V' });
+    expect(codonAt(37_370)).toMatchObject({ number: 1, residue: 'M' });
+    expect(codonAt(37_370)!.residue).toBe(translationOf(named('19'))[0]);
+  });
+
+  it('matches every complete frame-1 table-11 greeter CDS initiator to its annotation', () => {
+    expect(GENES).toHaveLength(51);
+    for (const gene of GENES) {
+      const feature = cds.find((f) => f.location === locationOf(gene))!;
+      expect(feature.location, gene.name).not.toMatch(/[<>]/);
+      expect(feature.qualifiers.codon_start, gene.name).toBe('1');
+      expect(feature.qualifiers.transl_table, gene.name).toBe('11');
+      expect(codonInGene(gene, gene.start), gene.name).toMatchObject({
+        gene, number: 1, residue: translationOf(gene)[0],
+      });
+    }
+  });
+
+  it('keeps an internal GTG in gene 19 as valine', () => {
+    const gene = named('19');
+    const coding = gene.segments.map(([start, end]) => at(start, end - start + 1)).join('');
+    const offset = Array.from({ length: Math.floor(coding.length / 3) }, (_, i) => i * 3)
+      .find((i) => i > 0 && coding.slice(i, i + 3) === 'GTG')!;
+    expect(offset).toBeGreaterThan(0);
+    expect(at(gene.start + offset, 3)).toBe('GTG');
+    const codon = codonAt(gene.start + offset)!;
+    expect(codon).toMatchObject({ gene, number: offset / 3 + 1, residue: 'V' });
+    expect(codon.residue).toBe(translationOf(gene)[codon.number - 1]);
   });
 
   it('names the stop codon and the regions between and around the genes', () => {

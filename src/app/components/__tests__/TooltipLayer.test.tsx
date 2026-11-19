@@ -21,7 +21,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@/src/app/testing/renderHarness';
-import TooltipLayer from '../TooltipLayer';
+import TooltipLayer, { invalidateTooltips } from '../TooltipLayer';
 
 function setup() {
   render(
@@ -75,4 +75,20 @@ describe('TooltipLayer', () => {
     act(() => { vi.advanceTimersByTime(0); });
     expect(screen.getByRole('tooltip').textContent).toBe('Zoom out');
   });
+});
+
+it('explicit invalidation cancels pending opens and unlinks active or detached anchors', () => {
+ vi.useFakeTimers();
+ const { plus } = setup();
+ fireEvent.pointerOver(plus);
+ act(() => invalidateTooltips());
+ act(() => vi.advanceTimersByTime(500));
+ expect(screen.queryByRole('tooltip')).toBeNull();
+ fireEvent.pointerOver(plus);
+ act(() => vi.advanceTimersByTime(500));
+ expect(plus.hasAttribute('aria-describedby')).toBe(true);
+ act(() => invalidateTooltips());
+ expect(screen.queryByRole('tooltip')).toBeNull();
+ expect(plus.hasAttribute('aria-describedby')).toBe(false);
+ vi.useRealTimers();
 });

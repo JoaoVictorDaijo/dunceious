@@ -1,7 +1,8 @@
 # Displayed metrics and sequence summaries
 
 Code assessments below are static inspections of `f5a6ad2` on 2026-10-23, not new runtime or
-reference-tool conformance tests. Sources marked Documented describe the cited version or
+reference-tool conformance tests, except METRIC-1, updated on 2026-11-06 for #259 with the mounted
+tests it names. Sources marked Documented describe the cited version or
 observation date only; live manuals are not assigned the releases in [Tools](tools.md).
 **Owner decision open** identifies an unresolved contract, not an adopted scientific method.
 Scientific choices still require an established source, its defaults and an independent oracle
@@ -27,13 +28,13 @@ width is not a record's ungapped residue length.
 
 **Applications.** No additional application-specific length convention is established here.
 
-**Dunceious.** Mixed — [#259](https://github.com/JoaoVictorDaijo/dunceious/issues/259).
-`src/app/components/RecordDetailsModal.tsx:278` still counts aligned-or-raw width as `bp`;
-the raw-sequence badge at :333 also uses `bp` for proteins. Feature lengths at :219, :228 and
-the selected-view badge at :333 now choose `aa`/`bp` and name the counted view. Raw hub/index
-and export-tree lengths use correct units (`src/app/components/hub/SequenceSectionHeader.tsx:50`,
-`HubIndex.tsx:56`, `ExportSequenceTree.tsx:61`); annotation-row units at `AnnotationRow.tsx:84`
-are correct. `src/app/logic/bioResponse.ts:205` still calls alignment width `bp`.
+**Dunceious.** Record details count `record.sequence.length` as residues with `aa` for
+proteins and `bp` for nucleotides. When `alignedSequence` exists, a separate Alignment length
+row counts its columns, including gaps. The raw-sequence badge uses the same residue units.
+Feature lengths and selected-view badges retain their feature/region extents. Literal mounted
+oracles in `RecordDetailsModal.test.tsx` distinguish ACGT (4 bp) from AC--GT (6 columns),
+and MA (2 aa) from M--A (4 columns). Raw hub/index and export-tree lengths use molecule units,
+and so does the viewer's focus badge. The alignment-overlay log names its width in columns.
 
 ## METRIC-2. Feature length
 
@@ -52,11 +53,11 @@ its `SimpleLocation` requires `0 <= start <= end <= n`.
 but neither Roary nor name equality establishes homology or Dunceious's classifier (OP-10).
 
 **Dunceious.** Conforms for valid supported interval lengths; malformed/uncertain inputs remain
-unresolved. `src/app/logic/viewModel.ts:46` sums parts, treats descending spans as wraps when
+unresolved. `src/app/logic/viewModel.ts:64` sums parts, treats descending spans as wraps when
 source length is supplied, otherwise uses an absolute difference. `featureSequenceViews` at
-:82 exposes interval-sum and envelope lengths separately. Consumers include
-`src/app/components/RecordDetailsModal.tsx:219`, `src/app/components/hub/AnnotationRow.tsx:59`
-and `FeatureSectionHeader.tsx:44`. Do not extend this narrow assessment to unsupported locations
+`viewModel.ts:128` exposes interval-sum and envelope lengths separately. Consumers include
+`src/app/components/RecordDetailsModal.tsx:244`, `src/app/components/hub/AnnotationRow.tsx:67`
+and `FeatureSectionHeader.tsx:45`. Do not extend this narrow assessment to unsupported locations
 or the biological comparisons tracked in [#256](https://github.com/JoaoVictorDaijo/dunceious/issues/256).
 
 ## METRIC-3a. Accession label
@@ -70,9 +71,11 @@ The supplied version is pinned in [Sources](sources.md); the upstream URL rolls 
 
 **Applications.** No application fallback policy is inferred from database semantics.
 
-**Dunceious.** Deviates — [#259](https://github.com/JoaoVictorDaijo/dunceious/issues/259).
-`src/app/components/RecordDetailsModal.tsx:272` displays `accession?.trim() || id` under
-Accession. METRIC-10a separately governs the feature count beside it.
+**Dunceious.** Record details show the trimmed accession, or `—` when absent, under
+Accession, and `record.id` separately under Identifier. HubIndex labels its accession-or-local-id
+sort “Identifier (A–Z)”; the sort key remains accession when available, otherwise local id.
+Mounted tests cover absent, blank and present accessions independently of the local identifier.
+METRIC-10a separately governs the feature count beside it.
 
 ## METRIC-3b. Detail-warning provenance
 
@@ -165,8 +168,8 @@ nucleotide agreement percentage.
 
 **Dunceious.** Owner decision open; differs from Jalview conservation —
 [#254](https://github.com/JoaoVictorDaijo/dunceious/issues/254).
-`src/app/viewer/GenomeViewer.tsx:219` counts the largest literal nongap symbol frequency divided
-by all rows; `src/app/viewer/Minimap.tsx:194` instead counts equality to supplied consensus divided
+`src/app/logic/viewModel.ts:202` counts the largest literal nongap symbol frequency divided
+by all visible aligned rows; `src/app/viewer/Minimap.tsx:195` instead counts equality to supplied consensus divided
 by all rows, forcing gap/absent consensus to zero. These displays can disagree. Neither computes
 a property index; `tracks/ConservationTrack.tsx:23` renders the main fraction.
 
@@ -185,12 +188,12 @@ are documented alternatives; they do not validate arbitrary local combinations.
 Dunceious's exact visibility/missing-row policy.
 
 **Dunceious.** Owner decision open — [#254](https://github.com/JoaoVictorDaijo/dunceious/issues/254).
-`src/app/hooks/useBioWorker.ts:189` dispatches visible records; `src/domain/bio/consensus.ts:31`
+`src/app/hooks/useBioWorker.ts:207` dispatches visible records; `src/domain/bio/consensus.ts:31`
 then keeps truthy aligned strings, ignores absent positions and compares case-sensitive literal
-symbols. The viewer at `src/app/viewer/GenomeViewer.tsx:223` uses aligned-or-raw strings, excludes
-gaps from candidates but keeps all rows in the denominator. The minimap at `Minimap.tsx:156`
+symbols. The viewer at `src/app/logic/viewModel.ts:202` uses visible aligned rows, excludes
+gaps from candidates and keeps those rows in the denominator. The minimap at `Minimap.tsx:157`
 samples every `max(1, floor(alignmentLength / 1000))` columns and uses its separate denominator
-and consensus-gap policy at :194. Case and nucleotide U/T distinctions remain literal.
+and consensus-gap policy at :195. Case and nucleotide U/T distinctions remain literal.
 
 ## METRIC-6a. Pair glyph meanings
 
@@ -213,7 +216,7 @@ policy; no matching external recipe established.
 `src/core/search/hitColumns.ts:94` maps identical to `|`, ambiguity or similar to `:`, mismatch
 to `.`, gaps to space. Local `:` means a nonidentical positive substitution; nonlocal `:` means
 ambiguity acceptance. `src/app/components/search/SearchDetails.tsx:44` exposes the legend;
-`src/app/viewer/tracks/SequenceTrack.tsx:272` renders query marks. Nonlocal ambiguity acceptance
+`src/app/viewer/tracks/SequenceTrack.tsx:398` renders query marks. Nonlocal ambiguity acceptance
 is not matrix similarity. Width 60 is a local choice, not a verified EMBOSS 6.6 default (FMT-13).
 
 ## METRIC-6b. Positive-score and exclusive-substitution counts
@@ -262,7 +265,7 @@ established comparison policy and independent oracle must be identified before a
 maps U→T only for nucleotides. At :52 absent residues count as gaps; gap/gap is identical.
 Known concrete residues compare literally; equal ambiguous symbols such as N/N remain ambiguous
 at :60. Proteins include standard residues, U/O and stop. The viewer at
-`src/app/viewer/tracks/SequenceTrack.tsx:207` uses these classes for residue presentation.
+`src/app/viewer/tracks/SequenceTrack.tsx:314` uses these classes for residue presentation.
 
 ## METRIC-7a. Observed interval values and interpolation
 
@@ -271,21 +274,21 @@ interpolation. [UCSC bedGraph, Data Values](https://genome.ucsc.edu/goldenPath/h
 (unversioned, observed 2026-10-23) graphs specified positions; a line connecting interval
 midpoints must not silently imply additional observed values. Half-open membership uses
 FMT-7/FMT-8; residue-to-alignment transposition uses OP-4; displayed numbering uses COORD-1.
-**Owner decision open:** interval bars/points or a declared interpolation can express different
-presentation contracts; no replacement interpolation method is selected here.
+**Project display policy:** supplied interval values use independent rectangles and top edges,
+without interpolation, clipped to residue columns as defined in the
+[quantitative interval design](../specs/2026-11-06-viewer-quantitative-track-intervals.md).
 
 **Reference tools.** Documented: UCSC offers bar/points and optional smoothing/windowing;
 these choices do not turn missing spans into supplied observations.
 
 **Applications.** No universal plotting aesthetic inferred from the bedGraph contract.
 
-**Dunceious.** Deviates in interval presentation —
-[#260](https://github.com/JoaoVictorDaijo/dunceious/issues/260).
-`src/app/viewer/tracks/QuantitativeTrack.tsx:117` connects midpoint values through missing spans.
-`src/app/viewer/Row.tsx:511` and :529 include exclusive ends in hit testing. Features are
-transposed at `src/domain/bio/coordinate.ts:178`, but quantitative tracks retain source coordinates
-through the record spread at :181 even when drawn on an aligned x-axis. These coordinate defects
-belong to FMT-7/FMT-8/OP-4 rather than a new metric coordinate rule.
+**Dunceious.** Quantitative values are drawn as independent half-open envelope rectangles,
+clipped to shared residue runs, without interpolation or values on alignment gaps.
+`src/domain/bio/quantitativeTracks.ts` preserves source intervals and lists every half-open
+pick match; `src/app/viewer/tracks/trackGeometry.ts` supplies exact support geometry.
+The [quantitative interval design](../specs/2026-11-06-viewer-quantitative-track-intervals.md)
+defines placement refusal, source identity, selection and finite-value ranges.
 
 ## METRIC-7b. BED score meaning
 
@@ -302,7 +305,7 @@ universal measured quantity.
 **Dunceious.** Limited interpretation —
 [#260](https://github.com/JoaoVictorDaijo/dunceious/issues/260).
 `src/core/formats/annotations.ts:39` reads BED into a quantitative track, including missing-score
-fallback; `src/app/viewer/tracks/QuantitativeTrack.tsx:40` renders numeric values. These paths
+fallback; `src/app/viewer/tracks/QuantitativeTrack.tsx:52` renders numeric values. These paths
 do not establish measurement units or full BED score validation.
 
 ## METRIC-7c. Numeric display precision
@@ -319,8 +322,8 @@ The [BED v1 score field](https://samtools.github.io/hts-specs/BEDv1.pdf) and
 **Applications.** No universal precision/palette convention established.
 
 **Dunceious.** Owner decision open — [#260](https://github.com/JoaoVictorDaijo/dunceious/issues/260).
-`src/app/viewer/tracks/QuantitativeTrack.tsx:201` and `src/app/viewer/Row.tsx:167`, :176 round
-visible labels to one decimal. `Row.tsx:516` interpolates the unrounded value into the tooltip;
+`src/app/viewer/tracks/QuantitativeTrack.tsx:108` and `src/app/viewer/Row.tsx:191`, :200 round
+visible labels to one decimal. `Row.tsx:582` interpolates the unrounded value into the tooltip;
 stored precision is not lost by label rounding.
 
 ## METRIC-8a. Service limits
@@ -409,9 +412,9 @@ retain their distinct definitions; neither is selected. Column-statistic samplin
 
 **Applications.** UCSC dense overlay is related practice only; no exact opacity calibration follows.
 
-**Dunceious.** Owner decision open. `src/app/viewer/Minimap.tsx:168` projects each feature envelope
-onto pixels, adds 0.1 per covered pixel at :173, keeps the first color and caps opacity at 1
-at :182. This is not an established feature-per-base density measure.
+**Dunceious.** Owner decision open. `src/app/viewer/Minimap.tsx:169` projects each feature envelope
+onto pixels, adds 0.1 per covered pixel at :174, keeps the first color and caps opacity at 1
+at :183. This is not an established feature-per-base density measure.
 
 ## METRIC-10a. Annotation-count population
 
@@ -434,12 +437,12 @@ Dunceious's name-only grouping, 3% odd or <50% accessory thresholds or cross-rec
 
 **Dunceious.** Owner decision open — [#259](https://github.com/JoaoVictorDaijo/dunceious/issues/259),
 [#256](https://github.com/JoaoVictorDaijo/dunceious/issues/256).
-Details count every feature at `src/app/components/RecordDetailsModal.tsx:283`; hub composition
-excludes source (`src/domain/bio/recordStatus.ts:38`, `src/app/components/hub/SequenceSectionHeader.tsx:39`).
+Details count every feature at `src/app/components/RecordDetailsModal.tsx:321`; hub composition
+excludes source (`src/domain/bio/recordStatus.ts:38`, `src/app/components/hub/SequenceSectionHeader.tsx:40`).
 `src/app/logic/featureComparison.ts:132` counts present records and :137 all group records as pool,
 displayed by `FeatureSectionHeader.tsx:56` and `HubIndex.tsx:71`. The classifier baseline at :89
-has additional exclusions. Export counts are non-source at `ExportDialog.tsx:132` and
-`ExportSequenceTree.tsx:61`. These are literal counts, not verified orthology/prevalence conclusions.
+has additional exclusions. Export counts are non-source at `ExportDialog.tsx:143` and
+`ExportSequenceTree.tsx:62`. These are literal counts, not verified orthology/prevalence conclusions.
 
 ## METRIC-10b. Export reconciliation
 
@@ -456,9 +459,9 @@ application report schema. METRIC-1 governs the raw residue length in the compos
 counts of selected objects versus counts of actually serialized objects; labels and reconciliation
 must make that distinction explicit, without selecting a policy here.
 
-**Dunceious.** Owner decision open. `src/app/logic/exportPlan.ts:75` shares serializer dispatch
-between preview and download. `src/app/components/hub/ExportDialog.tsx:132` counts annotations/edits,
-and :170 displays quantities/reports. `src/core/exportReport.ts:38` initializes `adjustedIds`;
+**Dunceious.** Owner decision open. `src/app/logic/exportPlan.ts:83` shares serializer dispatch
+between preview and download. `src/app/components/hub/ExportDialog.tsx:143` counts annotations/edits,
+and :190 displays quantities/reports. `src/core/exportReport.ts:59` initializes `adjustedIds`;
 a whole-source search finds its declaration, initializer and two consumers, no writer. Thus
 an empty ledger does not independently establish no ID adjustment. Source/validation deviations
 remain [#251](https://github.com/JoaoVictorDaijo/dunceious/issues/251) and

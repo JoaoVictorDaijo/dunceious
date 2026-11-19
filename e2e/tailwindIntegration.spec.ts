@@ -28,15 +28,15 @@ test('current-develop gap notice retains its backdrop, visible-sibling spacing a
     name: 'gaps.fa', mimeType: 'text/plain',
     buffer: Buffer.from('>gapped-one\nATG-AAACCC\n>gapped-two\nATGC--CCGGG\n'),
   });
-  const notice = page.getByRole('alertdialog', { name: 'Alignment gaps removed' });
+  const notice = page.getByRole('alertdialog', { name: 'Remove alignment gaps?' });
   await expect(notice).toBeVisible();
-  await expect(notice.getByRole('button', { name: 'Dismiss', exact: true })).toBeFocused();
+  await expect(notice.getByRole('button', { name: 'Load without gaps', exact: true })).toBeFocused();
   await expect(notice.locator('..')).toHaveCSS('backdrop-filter', 'blur(4px)');
   const rows = notice.locator('li');
   await expect(rows).toHaveCount(2);
   const geometry = await notice.evaluate(dialog => {
     const section = dialog.querySelector('section')!;
-    const paragraph = dialog.querySelector('#gap-notice-rule')!;
+    const paragraph = section.previousElementSibling!;
     const items = [...dialog.querySelectorAll('li')];
     const icon = dialog.querySelector('h2')!.previousElementSibling!;
     return {
@@ -50,7 +50,7 @@ test('current-develop gap notice retains its backdrop, visible-sibling spacing a
   expect(geometry).toEqual({ sectionGap: 16, itemGap: 2, itemMargin: '2px', iconShrink: '0', gradient: true });
   await page.keyboard.press('Escape');
   await expect(notice).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Jump to sequence gapped-one', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Jump to sequence gapped-one', exact: true })).toHaveCount(0);
 });
 
 test('current-develop feature length and sequence controls preserve styling and keyboard focus', async ({ page }) => {

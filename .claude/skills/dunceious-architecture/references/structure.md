@@ -37,7 +37,8 @@ src/
     ├── shell/           # ShellRoot + pickShell: phones get the greeter, everything else App (both lazy chunks)
     ├── greeter/         # phone landing page and tour; never imports the workbench UI (ESLint)
     ├── showroom/        # phone test drive over a bundled aligned sample (Hub, Export, details), lazy-loaded by the greeter; no App/hooks/lib/shell imports except hooks/useHubState (ESLint)
-    ├── App.tsx          # composition root of the workbench
+    ├── App.tsx          # composition root of the workbench: renders what useWorkbench returns
+    ├── workbench/       # useWorkbench, its state hooks, overlays, main area and prop builders
     ├── recordRemoval.ts # pure record-removal helpers (app-root, sibling of logic/)
     ├── logic/           # pure reducers/view-model (+ runInlineSearch)
     ├── hooks/

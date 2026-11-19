@@ -23,7 +23,7 @@
  *   - extractCodingSequence  (multi-segment, circular wrap-around, strand handling)
  *   - detectEarlyStop        (early vs terminal stop codon)
  *   - translateFeature       (prefer stored /translation over recomputation)
- *   - isFeatureBroken        (prefer stored /translation for broken detection)
+ *   - isFeatureBroken        (DNA determines broken detection)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -235,33 +235,33 @@ describe('translateFeature', () => {
 
   it('shows the annotated initiator (Met) for an alternative start codon', () => {
     // ATT is Ile when translated literally, but the CDS annotates it as the Met start.
-    expect(translateFeature({ translation: 'MPE' }, 'ATTCCCGAG')).toBe('MPE');
+    expect(translateFeature({ metadata: { translation: 'MPE' } }, 'ATTCCCGAG')).toBe('MPE');
     expect(translateSequence('ATTCCCGAG')).toBe('IPE'); // what recomputation would give
   });
 
   it('falls back to the computed terminal stop that /translation omits', () => {
     // /translation omits the trailing stop, so codon 2 (TAA) has no stored residue.
-    expect(translateFeature({ translation: 'MP' }, 'ATGCCCTAA')).toBe('MP_');
+    expect(translateFeature({ metadata: { translation: 'MP' } }, 'ATGCCCTAA')).toBe('MP_');
   });
 
   it('merges a short stored protein with computed residues under the requested code', () => {
-    expect(translateFeature({ translation: 'M' }, 'GTGTGATAA', 4)).toBe('MW_');
-    expect(translateFeature({ translation: '' }, 'GTGTGATAA', 4)).toBe('VW_');
+    expect(translateFeature({ metadata: { translation: 'M' } }, 'GTGTGATAA', 4)).toBe('MW_');
+    expect(translateFeature({ metadata: { translation: '' } }, 'GTGTGATAA', 4)).toBe('VW_');
   });
 
   it('does not invent codons for a longer stored translation or empty coding sequence', () => {
-    expect(translateFeature({ translation: 'MPEXYZ' }, 'ATTCCCGAGA')).toBe('MPE');
-    expect(translateFeature({ translation: 'MPE' }, '')).toBe('');
+    expect(translateFeature({ metadata: { translation: 'MPEXYZ' } }, 'ATTCCCGAGA')).toBe('MPE');
+    expect(translateFeature({ metadata: { translation: 'MPE' } }, '')).toBe('');
   });
 
   it('preserves transl_except recoding (selenocysteine) from /translation', () => {
     // Internal TGA is a stop under the standard code but recoded to U by /transl_except.
-    expect(translateFeature({ translation: 'MUP' }, 'ATGTGACCC')).toBe('MUP');
+    expect(translateFeature({ metadata: { translation: 'MUP' } }, 'ATGTGACCC')).toBe('MUP');
   });
 });
 
 // ---------------------------------------------------------------------------
-// isFeatureBroken — prefer stored /translation for broken detection
+// isFeatureBroken — DNA determines broken detection
 // ---------------------------------------------------------------------------
 
 describe('isFeatureBroken', () => {
@@ -271,22 +271,22 @@ describe('isFeatureBroken', () => {
   });
 
   it('treats an empty stored translation as absent', () => {
-    expect(isFeatureBroken({ translation: '' }, 'ATGTAGGAG')).toBe(true);
+    expect(isFeatureBroken({ metadata: { translation: '' } }, 'ATGTAGGAG')).toBe(true);
   });
 
-  it('is not broken when the stored /translation has no internal stop', () => {
+  it('flags a DNA stop even if the stored protein has none', () => {
     // Recomputing this selenocysteine CDS would read the internal TGA as an early stop.
     expect(detectEarlyStop('ATGTGACCC')).toBe(true);
-    expect(isFeatureBroken({ translation: 'MUP' }, 'ATGTGACCC')).toBe(false);
+    expect(isFeatureBroken({ metadata: { translation: 'MUP' } }, 'ATGTGACCC')).toBe(true);
   });
 
-  it('is broken when the stored /translation carries an internal stop', () => {
-    expect(isFeatureBroken({ translation: 'M*P' }, 'ATGCCCGAG')).toBe(true);
-    expect(isFeatureBroken({ translation: 'M_P' }, 'ATGCCCGAG')).toBe(true);
+  it('does not infer a DNA stop from stored stops', () => {
+    expect(isFeatureBroken({ metadata: { translation: 'M*P' } }, 'ATGCCCGAG')).toBe(false);
+    expect(isFeatureBroken({ metadata: { translation: 'M_P' } }, 'ATGCCCGAG')).toBe(false);
   });
 
   it('tolerates a trailing stop in /translation as normal termination', () => {
-    expect(isFeatureBroken({ translation: 'MP*' }, 'ATGCCCTAA')).toBe(false);
-    expect(isFeatureBroken({ translation: 'MP_' }, 'ATGCCCTAA')).toBe(false);
+    expect(isFeatureBroken({ metadata: { translation: 'MP*' } }, 'ATGCCCTAA')).toBe(false);
+    expect(isFeatureBroken({ metadata: { translation: 'MP_' } }, 'ATGCCCTAA')).toBe(false);
   });
 });

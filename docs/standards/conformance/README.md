@@ -55,3 +55,26 @@ reverse-complements the result, as INSDC FT 11.4 §3.4.2.2 and §3.4.3 specify. 
 does not change that oracle. EMBOSS `seqret` also drops the inner complements on round-trip.
 Biopython's harness reports its parser warnings and unavailable locations explicitly, and omits
 only rejected features from its round-trip check; the other features are still checked.
+
+## GenBank import validation
+
+`run_genbank_validation.py` requires Biopython **1.88**, asserts its version, and runs from
+the repository root. It writes `result-genbank-biopython-1.88.json` for every bundled `.gb`
+and `validation-*.gb` fixture: sequence, per-part start/end/strand and extracted sequence.
+The TypeScript adapter compares evaluation order and treats protein null strand as forward;
+RNA comparisons treat T/U as equivalent. Nested complements J4/J5/W2 use `oracle.py` instead.
+The bundled protein Site `order()` features have explicitly pinned refusal expectations until
+the integration location-reading change removes that guard.
+
+Vocabulary generation is deterministic and offline:
+
+```sh
+pnpm standards:fetch
+pnpm exec node scripts/gen-feature-table.mjs
+pnpm standards:verify-vocab
+```
+
+The default suite compares the committed module with independent-source expected tables.
+A complete hand-curated review of those tables is pending; it is not claimed by these checks.
+Regeneration equality is an explicit conformance gate, requiring the ignored pinned inputs;
+CI does not download standards during ordinary tests.

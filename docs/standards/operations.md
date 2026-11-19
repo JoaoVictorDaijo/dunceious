@@ -21,7 +21,7 @@ detector or a numerical inference threshold.
 and permits correction through Type ([Sequences, Creating new sequences](https://manual.geneious.com/en/latest/Sequences.html)).
 Its live manual does not specify the inference algorithm.
 
-**Dunceious.** Inference remains unverified: `src/domain/bio/sequence.ts:369` returns protein
+**Dunceious.** Inference remains unverified: `src/domain/bio/sequence.ts:403` returns protein
 for `EFIJLOPQXZ*`, otherwise RNA when U occurs, otherwise DNA. A protein such as `MKV` is
 therefore inferred as DNA. **Owner decision open:** retain a disclosed inference with a type
 override, following the documented correction precedent, or require an explicit type when
@@ -42,16 +42,14 @@ protein grammar.
 format support alone is not evidence of correct parsing.
 
 **Dunceious.** Deviates — [#243](https://github.com/JoaoVictorDaijo/dunceious/issues/243).
-`src/domain/bio/sequence.ts:382` searches the whole line for a word `aa` or substring `rna`,
+`src/domain/bio/sequence.ts:416` searches the whole line for a word `aa` or substring `rna`,
 then defaults to DNA; an identifier can change classification. **Owner decision open:** keep
 an unknown/NA declaration unresolved or request explicit clarification, with a separately
 sourced protein-format fallback before claiming GenPept conformance.
 
 ## OP-3. Mixed molecule types in a workspace
 
-**Rule.** **Owner decision open:** define whether nucleotide and protein records may coexist
-in a workspace and what evidence can justify refusing an import. No standard or documented
-practice was found for the exact restrictive any-protein session gate and preview policy.
+**Rule.** A Dunceious workspace holds one molecule category. Treat this as an application policy.
 
 **Reference tools.** The verified search of NCBI, EMBOSS and Biopython typing/alignment
 documentation did not establish this viewer-wide restriction.
@@ -62,14 +60,12 @@ permits nucleotide and protein sequences together; this does not establish that 
 mixed types belong in one biological alignment. Evidence-supported options are a mixed list
 with operation-specific type requirements, or an explicitly defined homogeneous viewer policy.
 
-**Dunceious.** Policy unestablished: `src/domain/bio/sequence.ts:471` classifies the session
-as protein if any record is protein; `src/app/hooks/useFileHandlers.ts:186` uses that category
-for import gating. Its FASTA preview (`useFileHandlers.ts:48`) appends complete sequence lines
-and checks the 1,200-character trigger after each append, so a long line can exceed it. On a
-subsequent header, its counter advances whenever a header was already seen and the cumulative
-sample is nonempty, stopping at three. The sample is not reset between records, so this is
-not reliably three nonempty records. Later unsampled records can escape classification.
-The preview and inference limitations also concern [#244](https://github.com/JoaoVictorDaijo/dunceious/issues/244).
+**Dunceious.** `findSessionTypeConflict` (`src/domain/bio/sequence.ts`) checks every parsed record of a
+sequence import against the live workspace and refuses a file that mixes categories or differs
+from a non-empty workspace. Classification is still alphabet-only for FASTA
+(`detectMoleculeType`), so a protein
+written only in nucleotide-overlapping letters is read as nucleotide. The inference limitation
+also concerns [#244](https://github.com/JoaoVictorDaijo/dunceious/issues/244).
 
 ## OP-4. Residues, alignment columns and boundaries
 
@@ -85,13 +81,17 @@ is not a policy for mapping interval boundaries.
 in the verified application evidence.
 
 **Dunceious.** Residue correspondence conforms within scope at
-`src/domain/bio/sequence.ts:398`; boundary policy remains open at `sequence.ts:416`.
+`src/domain/bio/sequence.ts:432`; boundary policy remains open at `sequence.ts:463`.
 For a nonempty map, the start is clamped and the end forced to at least `safeStart + 1`,
 including empty or reversed input ranges; an empty map returns 0..0. The prefix-count map
-at `sequence.ts:439` counts residues before a boundary, rather than assigning a gap residue.
-`src/domain/bio/coordinate.ts:178` transposes features, while `coordinate.ts:181` preserves
-quantitative tracks in source coordinates, a deviation tracked in
-[#260](https://github.com/JoaoVictorDaijo/dunceious/issues/260).
+at `sequence.ts:497` counts residues before a boundary, rather than assigning a gap residue.
+`src/domain/bio/coordinate.ts` transposes features into separate display copies.
+Quantitative tracks retain their source coordinates beside `displayTracks`: shared residue
+runs map their support into aligned columns, with gap-free picking and masked drawing
+(`src/domain/bio/quantitativeTracks.ts`). Invalid, out-of-range and empty quantitative
+intervals are reported as unplaced without clamping; the
+[quantitative interval design](../specs/2026-11-06-viewer-quantitative-track-intervals.md)
+settles this display policy.
 **Owner decision open:** use a gap sentinel for residue lookup and a separate prefix-count
 boundary map, and decide explicitly whether invalid/empty ranges are preserved, refused or
 clamped. The reference does not authorize forcing a site to nonzero width; LOC-5 still applies.
@@ -108,8 +108,8 @@ reports the overlapping portion. It supplies no general requirement about list o
 **Applications.** Unknown for this exact clipping/list-order contract in the verified cohort.
 
 **Dunceious.** Conforms for nonempty linear half-open intervals at
-`src/domain/bio/intervals.ts:28`: `[max(start,min), min(end,max))` is returned only if nonempty.
-`intervals.ts:48` retains input segment order as the current application contract, not a
+`src/domain/bio/intervals.ts:38`: `[max(start,min), min(end,max))` is returned only if nonempty.
+`intervals.ts:58` retains input segment order as the current application contract, not a
 bedtools-derived guarantee. Circular inputs first need splitting. For ordered biological
 parts, LOC-1/LOC-3 govern evaluation order independently of this geometry rule.
 
@@ -143,8 +143,8 @@ distance/type detector or its sensitivity and specificity.
 
 **Dunceious.** Biological inference unestablished —
 [#255](https://github.com/JoaoVictorDaijo/dunceious/issues/255).
-`src/domain/bio/frameshift.ts:37` sets a two-base maximum;
-`frameshift.ts:65` uses written-order segments but evaluates consecutive end/start pairs as
+`src/domain/bio/frameshift.ts:39` sets a two-base maximum;
+`frameshift.ts:68` uses written-order segments but evaluates consecutive end/start pairs as
 forward genomic steps, without checking CDS type or `/ribosomal_slippage`. This can miss valid
 descending minus-strand joins. **Owner decision open:** distinguish explicit qualifier-based
 events from disclosed geometric junction observations; a biological detector or discriminator
@@ -163,13 +163,11 @@ does not settle six-frame row numbering or lane packing.
 
 **Applications.** Unknown for an exact matching reverse-lane numbering convention.
 
-**Dunceious.** Partial static agreement: `src/domain/bio/sequence.ts:223` extracts the oriented
-feature before applying its offset. `src/app/viewer/cds.ts:72` uses forward first-base mod 3
-and reverse `(firstBase + 1)` mod 3; `cds.ts:78` groups codon pieces by biological adjacency.
-These row indices are not GFF3 phase values. Full split-exon and descending-minus correctness
-has not been established by a reference run. **Owner decision open:** label rows by an explicitly
-declared genomic frame convention or a feature-relative codon convention, with lane packing
-kept separate from biological phase; neither exact layout is prescribed by these sources.
+**Dunceious.** Extracts the oriented feature before applying its offset. The display frame in
+`src/app/viewer/cds.ts` uses the first base's zero-based genomic index modulo 3 on the forward
+strand or that index plus 1 modulo 3 on the reverse strand. Dunceious uses the first
+biological base of a mixed-strand codon to set its lane and frame. All pieces stay in one lane so they read as one codon. The tooltip
+names each contributing base's strand. GFF3 phase remains a separate per-part value.
 
 ## OP-9. Source qualifier and span fidelity
 
@@ -189,9 +187,9 @@ verified application evidence.
 [#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242).
 `src/domain/bio/details.ts:27` reads only the first source; `details.ts:38` edits that source
 while retaining its other qualifiers. Editing one source is not itself prohibited, but the
-record-wide details object cannot represent all source spans. `src/core/genbank/serialize.ts:77`
+record-wide details object cannot represent all source spans. `src/core/genbank/serialize.ts:207`
 deletes a qualifier from every source when the first source's record-wide value is absent,
-including a value present on a later source. `serialize.ts:84` supplies `/mol_type` but does
+including a value present on a later source. `serialize.ts:215` supplies `/mol_type` but does
 not restore missing mandatory `/organism`. Legacy geography spelling can be retained; it
 does not resolve the multi-source loss.
 
@@ -214,8 +212,8 @@ sourced homologous-cluster presence analysis; neither supplies the local cutoffs
 
 **Dunceious.** Exact classifier unestablished —
 [#256](https://github.com/JoaoVictorDaijo/dunceious/issues/256).
-`src/app/logic/featureComparison.ts:37` uses product for three peptide types, otherwise
-gene/locus_tag/name; grouping also uses organism. `featureComparison.ts:88` excludes partial
+`src/app/logic/featureComparison.ts:40` uses product for three peptide types, otherwise
+gene/locus_tag/name; grouping also uses organism. `featureComparison.ts:89` excludes partial
 and unannotated records from the baseline; type medians further exclude duplicate and partial
 features. `featureComparison.ts:110` calls presence in less than half the baseline accessory;
 `featureComparison.ts:119` calls length differences greater than 3% of the median odd.
@@ -301,7 +299,7 @@ uses bounds `0 <= start <= end <= n`; this supports bounds validity, not an auto
 seeds an annotation from the selected sequence/alignment region and permits interval editing.
 
 **Dunceious.** Selected-coordinate conversion agrees within scope at
-`src/app/logic/featureManager.ts:75`: it uses the first selected target and counts residues
+`src/app/logic/featureManager.ts:212`: it uses the first selected target and counts residues
 before aligned boundaries. Gap-only selections, invalid target IDs and the no-selection
 0..100 default are not validated here; 100 can exceed a short record.
 **Owner decision open:** require a valid nonempty selection, or allow manual interval entry
@@ -321,7 +319,7 @@ does not show homology or that an aligner ran.
 **Applications.** Unknown for the exact minimum-row and empty-input UI predicate.
 
 **Dunceious.** Conforms to the rectangular-width predicate at
-`src/app/logic/viewModel.ts:110`, requiring at least two equal-width aligned-or-raw rows and
+`src/app/logic/viewModel.ts:155`, requiring at least two equal-width aligned-or-raw rows and
 otherwise reporting maximum width. Equal raw lengths and empty equal-width rows can satisfy
 the predicate. **Owner decision open:** label this state as rectangular presentation, or
 require retained alignment provenance for an “alignment loaded” assertion. The representation
@@ -341,9 +339,9 @@ guidance. It does not define a universal import namespace or require case foldin
 sensitivity required by this application.
 
 **Dunceious.** Partial agreement on unique whitespace-free local IDs, not the whole NCBI
-submission grammar. `src/app/logic/idHelpers.ts:20` replaces a punctuation subset;
-`idHelpers.ts:25` adds suffixes case-insensitively, while `?`, `+`, `/` and unrestricted length
-remain. `src/app/logic/bioResponse.ts:85` rewrites imported ID/name while keeping accession
+submission grammar. `src/app/logic/idHelpers.ts:21` replaces a punctuation subset;
+`idHelpers.ts:26` adds suffixes case-insensitively, while `?`, `+`, `/` and unrestricted length
+remain. `src/app/logic/bioResponse.ts:145` rewrites imported ID/name while keeping accession
 separate. **Owner decision open:** preserve incoming identity with a distinct unique local
 key, or retain and expose an explicit reversible import mapping. NCBI submission rules alone
 authorize neither destructive renaming nor the present case-folding policy. Destination
@@ -388,7 +386,7 @@ month-only and named-month forms, beyond the listed timestamp forms.
 `details.ts:92` accepts missing terms for every detail key, including optional host.
 The verified complete geography comparison found 280 entries on both sides, differing only
 in straight versus curly apostrophe in Cote d'Ivoire; no exhaustive-vocabulary uncertainty
-remains for that observed snapshot. `src/core/exportReport.ts:43` omits edited values rejected
+remains for that observed snapshot. `src/core/exportReport.ts:65` omits edited values rejected
 by this validator, so valid INSDC ranges can disappear. **Owner decision open:** support the
 full grammar in editing, or disclose a narrower editor while preserving valid interchange
 values; any vocabulary snapshot and typography normalization needs explicit provenance.
@@ -409,9 +407,9 @@ disconnected search hits.
 
 **Dunceious.** Partial; biological join policy unestablished. `src/app/logic/searchState.ts:49`
 sorts record-mode parts and initially preserves selection-mode input order, but
-`src/app/logic/featureManager.ts:102` maps parts and then sorts them ascending at
-`featureManager.ts:122`, losing selection order before creation.
-`src/app/hooks/useFeatureManager.ts:246` creates `misc_feature`; abutting mapped parts remain
+`src/app/logic/featureManager.ts:239` maps parts and then sorts them ascending at
+`featureManager.ts:259`, losing selection order before creation.
+`src/app/hooks/useFeatureManager.ts:269` creates `misc_feature`; abutting mapped parts remain
 separate. **Owner decision open:** create separate annotations for independent hits, or offer
 an explicit biological join whose order and key are reviewed; determine overlap/disconnected
 meaning and whether abutting parts can merge. The standard constrains the chosen result,

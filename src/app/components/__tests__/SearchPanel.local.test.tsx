@@ -20,11 +20,14 @@
 
 // @vitest-environment jsdom
 import { beforeEach, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@/src/app/testing/renderHarness';
+import { fireEvent, render, screen, within } from '@/src/app/testing/renderHarness';
 import SearchPanel, { type SearchPanelProps } from '../SearchPanel';
 import { SearchDetails } from '../search/SearchDetails';
 import type { SearchResult } from '@/src/domain/bio/types';
 beforeEach(() => sessionStorage.clear());
+/** The value a Search details row shows beside its label. */
+const countRow = (label: string) => screen.getByText(label).closest('div')!.querySelector('dd')!.textContent;
+
 const hit: SearchResult = { cigar: '2S3=', recordId: 'synthetic', sequence: 'GTA', start: 0, end: 3, strand: 1,
  local: { score: 15, length: 3, identical: 3, similar: 3, gaps: 0, queryStart: 2, queryEnd: 5, queryLength: 5 } };
 function panelProps(): SearchPanelProps & { onClearSearch: () => void } {
@@ -70,7 +73,7 @@ it('shows defined Local metrics and cutoff counts, with correct soft-clipped que
  const alignment = card.querySelector<HTMLDetailsElement>('[data-hit-alignment]')!;
  expect(alignment.open).toBe(false);
  expect(screen.getByText('100.0%').closest('details')).toBeNull();
- expect(screen.getByText('Forward').closest('details')).toBeNull();
+ expect(within(card as HTMLElement).getByText('Forward').closest('details')).toBeNull();
  expect(screen.getByText('Score 15').closest('details')).toBeNull();
  expect(card.querySelector('[data-hit-barcode]')!.closest('details')).toBeNull();
  expect(screen.getAllByText('3 identical').some(el => el.tagName === 'P' && !el.closest('details'))).toBe(true);
@@ -87,9 +90,9 @@ it('shows defined Local metrics and cutoff counts, with correct soft-clipped que
  expect(screen.getByText(/Identity 3\/3/).compareDocumentPosition(alignment.querySelector('pre')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
  expect(screen.getByText("Top 1 shown; lower-scoring alignments aren't counted")).toBeTruthy();
  expect(screen.getByText('Counts cover alignments scoring at least 15 in EMBOSS units')).toBeTruthy();
- expect(screen.getByText('2 hidden by overlap')).toBeTruthy();
- expect(screen.getByText('1 hidden by display filters')).toBeTruthy();
- expect(screen.getByText('4 beyond the result limit')).toBeTruthy();
+ expect(countRow('Hidden by overlap')).toBe('2');
+ expect(countRow('Hidden by display filters')).toBe('1');
+ expect(countRow('Beyond the result limit')).toBe('4');
  expect(screen.queryByText(/lower bounds|more not counted|at least \d+ hidden/i)).toBeNull();
  expect(h.container.querySelector('pre')!.textContent).toMatch(/Query\s+3\s+GTA\s+5/);
  alignment.open = false; fireEvent(alignment, new Event('toggle'));
@@ -102,12 +105,12 @@ it('preserves a fractional cutoff in EMBOSS units', () => {
  props.searchResults = [fractionalHit]; props.groupedSearchResults = { synthetic: { results: [fractionalHit], indices: [0] } };
  render(<SearchPanel {...props} localReady localCounts={{ cutoff: 0.5, streams: 2, noPositiveStreams: 1, skippedRecords: [], hiddenByOverlap: 0, hiddenByFilters: 2, beyondLimit: 3 }} />);
  expect(screen.getByText('Counts cover alignments scoring at least 0.5 in EMBOSS units')).toBeTruthy();
- expect(screen.getByText('2 streams searched')).toBeTruthy();
- expect(screen.getByText('1 stream with no positive alignment')).toBeTruthy();
- expect(screen.getByText('0 records skipped')).toBeTruthy();
- expect(screen.getByText('0 hidden by overlap')).toBeTruthy();
- expect(screen.getByText('2 hidden by display filters')).toBeTruthy();
- expect(screen.getByText('3 beyond the result limit')).toBeTruthy();
+ expect(countRow('Streams searched')).toBe('2');
+ expect(countRow('No positive alignment')).toBe('1');
+ expect(countRow('Records skipped')).toBe('0');
+ expect(countRow('Hidden by overlap')).toBe('0');
+ expect(countRow('Hidden by display filters')).toBe('2');
+ expect(countRow('Beyond the result limit')).toBe('3');
  expect(screen.queryByText(/\(exact\)|lower bounds|more not counted/)).toBeNull();
 });
 
@@ -116,22 +119,20 @@ it.each([true, false])('shows exhaustive totals without a cutoff when results ar
  if (!hasResults) { props.searchResults = []; props.groupedSearchResults = {}; }
  render(<SearchPanel {...props} localReady localCounts={{ cutoff: null, streams: 3, noPositiveStreams: 1, skippedRecords: [], hiddenByOverlap: 2, hiddenByFilters: 4, beyondLimit: 0 }} />);
  expect(screen.getByText('Exact counts across all alignments')).toBeTruthy();
- expect(screen.getByText('2 hidden by overlap')).toBeTruthy();
- expect(screen.getByText('4 hidden by display filters')).toBeTruthy();
- expect(screen.getByText('0 beyond the result limit')).toBeTruthy();
+ expect(countRow('Hidden by overlap')).toBe('2');
+ expect(countRow('Hidden by display filters')).toBe('4');
+ expect(countRow('Beyond the result limit')).toBe('0');
  expect(screen.queryByText(/Counts cover alignments scoring|Top \d+ shown|lower bounds|more not counted|\(exact\)/)).toBeNull();
- if (hasResults) expect(screen.getByText('1 matches')).toBeTruthy();
+  if (hasResults) expect(screen.getByText(/^match in 1 record$/)).toBeTruthy();
 });
 
-it.each([0, 1, 2])('pluralizes Search details counts for %i records', count => {
- render(<SearchDetails mode="local" recordCount={count} counts={{ cutoff: null, streams: count, noPositiveStreams: count,
+it.each([0, 1, 2])('labels each Search details count and lists skipped records: %i', count => {
+ render(<SearchDetails mode="local" counts={{ cutoff: null, streams: count, noPositiveStreams: count,
    skippedRecords: Array.from({ length: count }, (_, i) => ({ recordId: `bad-${i}`, characters: ['*'] })),
    hiddenByOverlap: 0, hiddenByFilters: 0, beyondLimit: 0 }} />);
- const noun = count === 1 ? 'record' : 'records';
- const streams = screen.getByText(`${count} ${count === 1 ? 'stream' : 'streams'} searched`);
- const hits = screen.getByText(`Hits across ${count} ${noun}.`);
- expect(hits.parentElement).toBe(streams.parentElement);
- expect(hits.compareDocumentPosition(streams) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
- expect(screen.getByText(`${count} ${noun} skipped`)).toBeTruthy();
- expect(screen.getByText(`${count} ${count === 1 ? 'stream' : 'streams'} with no positive alignment`)).toBeTruthy();
+ expect(countRow('Streams searched')).toBe(String(count));
+ expect(countRow('No positive alignment')).toBe(String(count));
+ expect(countRow('Records skipped')).toBe(String(count));
+ for (let i = 0; i < count; i++) expect(screen.getByText(`bad-${i}: unsupported characters *`)).toBeTruthy();
+ expect(screen.getByText('Hidden by overlap').getAttribute('data-tip')).toMatch(/same record and strand/);
 });

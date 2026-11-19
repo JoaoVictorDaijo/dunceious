@@ -18,7 +18,16 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { FeatureSegment, BioFeature, SeqRecord } from './types';
+import { featureParts, projectGffRange, splitFeaturePart, splitWrapAround, storedLocalParts } from './featureParts';
+import type { SelectionArea, SelectionLoss } from './types';
+import { conceptualTranslation, isCds, geometryCodeBreakEvidence, removeChangedProteinId, translationReason } from './translation';
+import { validCodonStart } from './codonStart';
+import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
+import { isBetweenBasesSite, isOrderLocation, SINGLE_ORDER_CDS_OMISSION } from './locationFlags';
+import { expandedRemoteParts, expandedWrittenOrder, keptWrittenOrder } from './featureEnvelope';
+import { isUndrawnProteinBond, proteinBondEndpoints } from './proteinBond';
+
+export { splitWrapAround } from './featureParts';
 
 /**
  * Clips an interval `[start, end)` to fit within the bounds `[min, max)`.
@@ -63,28 +72,6 @@ export const clipSegments = (
   return result;
 };
 
-/**
- * Splits a potentially wrap-around interval `[start, end)` on a circular
- * sequence of length `seqLength` into one or two linear segments.
- *
- * A wrap-around interval is one where `start > end` (e.g., a feature that
- * spans the origin of a circular sequence).
- */
-export const splitWrapAround = (
-  start: number,
-  end: number,
-  seqLength: number
-): FeatureSegment[] => {
-  if (start <= end) {
-    return [{ start, end }];
-  }
-  // Wrap-around: covers [start, seqLength) and [0, end)
-  const segments: FeatureSegment[] = [];
-  if (start < seqLength) segments.push({ start, end: seqLength });
-  if (end > 0) segments.push({ start: 0, end });
-  return segments;
-};
-
 // ---------------------------------------------------------------------------
 // Selection-export helpers
 // ---------------------------------------------------------------------------
@@ -111,6 +98,26 @@ export function clipAndRebaseInterval(
   return out.end > out.start ? out : null;
 }
 
+/** INSDC FT 11.4 §3.4.2.1: an origin site adjoins the record's last and first bases. */
+function siteNeighboursSelected(boundary: number, length: number, circular: boolean, selStart: number, selEnd: number): boolean {
+  const left = boundary === 0 && circular ? length - 1 : boundary - 1;
+  const right = boundary === length && circular ? 0 : boundary;
+  return left >= 0 && right < length && left >= selStart && left < selEnd && right >= selStart && right < selEnd;
+}
+
+function projectClippedPart(segment: FeatureSegment, clipped: FeatureSegment, selStart: number, selEnd: number): FeatureSegment {
+  const { gffStartRange, gffEndRange, ...part } = segment;
+  const retained = clipped.start !== segment.start || clipped.end !== segment.end ? clipped : undefined;
+  const startRange = projectGffRange(gffStartRange, clipped.start + selStart, -selStart, retained);
+  const endRange = projectGffRange(gffEndRange, clipped.end + selStart, -selStart, retained);
+  return { ...part, ...clipped,
+    ...(segment.start < selStart && { partialStart: true as const }),
+    ...(segment.end > selEnd && { partialEnd: true as const }),
+    ...(startRange && { gffStartRange: startRange }),
+    ...(endRange && { gffEndRange: endRange }),
+  };
+}
+
 /**
  * Clips a `BioFeature` (including its `segments` array) to the selection window
  * and rebases all coordinates to be selection-local.
@@ -120,30 +127,66 @@ function clipFeature(
   feature: BioFeature,
   seq: string,
   selStart: number,
-  selEnd: number
+  selEnd: number,
+  circular: boolean,
 ): BioFeature | null {
-  const segments = feature.segments?.length
-    ? feature.segments
+  if (isBetweenBasesSite(feature)) {
+    // A site lies between two bases (LOC-5); it stays only when both of them are selected.
+    if (!siteNeighboursSelected(feature.start, seq.length, circular, selStart, selEnd)) return null;
+    const boundary = feature.start - selStart;
+    const result = { ...feature, start: boundary, end: boundary, segments: [{ start: boundary, end: boundary }] };
+    if (boundary !== feature.start) delete result.locationString;
+    return result;
+  }
+  const segments = feature.segments?.length || feature.remoteParts?.length
+    ? featureParts(feature, { length: seq.length, isCircular: circular })
     : splitWrapAround(feature.start, feature.end, seq.length);
-  const newSegments = segments.flatMap(segment => {
-    const clipped = clipAndRebaseInterval(segment.start, segment.end, selStart, selEnd);
-    return clipped ? [{ ...segment, ...clipped }] : [];
+  const kept: number[] = [];
+  const newSegments = segments.flatMap((segment, i) => {
+    const clipped = segment.start === segment.end
+      ? siteNeighboursSelected(segment.start, seq.length, circular, selStart, selEnd) ? { start: segment.start - selStart, end: segment.end - selStart } : null
+      : clipAndRebaseInterval(segment.start, segment.end, selStart, selEnd);
+    if (!clipped) return [];
+    kept.push(i);
+    return [projectClippedPart(segment, clipped, selStart, selEnd)];
   });
   if (!newSegments.length) return null;
+  // INSDC FT 11.4 §3.4.2.2: the first/last visit, not the genomic envelope, defines each end.
+  const perPart = segments.some(part => part.strand !== undefined);
+  const order = segments.flatMap((part, i) => part.start < part.end ? [i] : []);
+  if (!perPart && feature.strand === -1) order.reverse();
+  const selected = order.filter(i => kept.includes(i));
+  for (const first of [true, false]) {
+    const index = first ? selected[0] : selected.at(-1);
+    if (index === undefined) continue;
+    const original = segments[index];
+    const retained = newSegments[kept.indexOf(index)];
+    const reverse = (original.strand ?? feature.strand) === -1;
+    const key = first !== reverse ? 'partialStart' : 'partialEnd';
+    const coordinate = key === 'partialStart' ? 'start' : 'end';
+    if (index !== (first ? order[0] : order.at(-1)) || retained[coordinate] + selStart !== original[coordinate]) retained[key] = true;
+  }
 
   const result: BioFeature = {
     ...feature,
+    ...(isOrderLocation(feature) && { operator: 'order' }),
     start: Math.min(...newSegments.map(segment => segment.start)),
     end: Math.max(...newSegments.map(segment => segment.end)),
-    segments: feature.segments?.length || feature.start > feature.end ? newSegments : undefined,
+    // A segment that gained a cut-end marker must be kept, or the marker is lost with it (LOC-4).
+    segments: feature.segments?.length || feature.start > feature.end || newSegments.some(s => s.partialStart || s.partialEnd)
+      ? newSegments : undefined,
   };
-  if (selStart !== 0 || segments.some(segment => segment.start < selStart || segment.end > selEnd)) {
+  if (feature.remoteParts?.length) result.remoteParts = keptRemoteParts(feature.remoteParts, segments.length, kept);
+  const clipped = segments.some(segment => segment.start < segment.end && (segment.start < selStart || segment.end > selEnd));
+  if (selStart !== 0 || clipped || kept.length !== segments.length || result.start !== feature.start || result.end !== feature.end) {
     delete result.locationString;
   }
-
-  const clipped = segments.some(segment => segment.start < selStart || segment.end > selEnd);
+  if (!result.locationString) {
+    const writtenOrder = keptWrittenOrder(feature.writtenOrder, kept);
+    if (writtenOrder) result.writtenOrder = writtenOrder;
+    else delete result.writtenOrder;
+  }
   if (!clipped) return result;
-  delete result.translation;
   if (feature.metadata) {
     result.metadata = { ...feature.metadata };
     delete result.metadata.translation;
@@ -151,13 +194,24 @@ function clipFeature(
     delete result.metadata._gffPhaseState;
     delete result.metadata.phase;
   }
-  if (feature.type === 'CDS' || feature.type === 'SO:0000316') {
+  if (isCds(feature)) {
     const removed = removedTranscriptionBases(segments, feature.strand, seq, selStart, selEnd);
     const codonStart = Number(feature.metadata?.codon_start ?? 1);
     const offset = [1, 2, 3].includes(codonStart) ? codonStart - 1 : 0;
-    result.metadata = { ...result.metadata, codon_start: String(((offset - removed) % 3 + 3) % 3 + 1) };
+    if (validCodonStart(feature.metadata?.codon_start)) result.metadata = { ...result.metadata, codon_start: String(((offset - removed) % 3 + 3) % 3 + 1) };
   }
   return result;
+}
+
+/**
+ * Remote parts keep their own coordinates (another entry's), and their place among the stored
+ * intervals moves up past each local interval the selection dropped before them.
+ */
+export function keptRemoteParts(parts: RemotePart[], localCount: number, kept: number[]): RemotePart[] {
+  const stored: (number | RemotePart)[] = Array.from({ length: localCount }, (_, i) => i);
+  for (const part of [...parts].sort((a, b) => a.index - b.index)) stored.splice(Math.min(part.index, stored.length), 0, part);
+  const remaining = stored.filter(item => typeof item !== 'number' || kept.includes(item));
+  return remaining.flatMap((item, index) => (typeof item === 'number' ? [] : [{ ...item, index }]));
 }
 
 /** Counts only biological bases preceding the first selected part in transcription order. */
@@ -183,6 +237,37 @@ function removedTranscriptionBases(
   return removed;
 }
 
+/** Splitting a stored wrap also expands its positions in written order and among remote parts. */
+function selectionGeometry(feature: BioFeature, length: number, isCircular: boolean): BioFeature {
+  const stored = storedLocalParts(feature);
+  if (!isCircular || !stored?.some(part => part.start > part.end)) {
+    return stored === feature.segments ? feature : { ...feature, segments: stored };
+  }
+  const expanded = stored.map(part => splitFeaturePart(part, { length, isCircular }));
+  const writtenOrder = expandedWrittenOrder(feature.writtenOrder, stored, expanded);
+  const remoteParts = expandedRemoteParts(feature.remoteParts ?? [], expanded);
+  return { ...feature, segments: expanded.flat(), writtenOrder,
+    ...(feature.remoteParts && { remoteParts }) };
+}
+
+function clipProteinBond(
+  feature: BioFeature, record: SeqRecord, selStart: number, selEnd: number, losses: SelectionLoss[],
+): BioFeature | null | undefined {
+  if (record.moleculeType !== 'protein' || !feature.locationString) return undefined;
+  const undrawn = isUndrawnProteinBond(feature);
+  const endpoints = undrawn ? undefined : proteinBondEndpoints(feature.locationString);
+  if (!endpoints && !undrawn) return undefined;
+  const offset = Math.max(0, selStart);
+  if (!endpoints || endpoints.some(point => point <= offset || point > selEnd)) {
+    losses.push({ ...selectionFeature(record, feature), reason: `Bond ${feature.locationString} omitted because every endpoint must be selected` });
+    return null;
+  }
+  if (offset === 0) return feature;
+  const rebased = endpoints.map(point => point - offset);
+  const segment = { start: rebased[0] - 1, end: rebased[0] };
+  return { ...feature, ...segment, segments: [segment], locationString: `bond(${rebased.join(',')})` };
+}
+
 /**
  * Slices all records to the selection window `[selStart, selEnd)`, rebasing
  * feature/segment coordinates and filtering zero-length track intervals.
@@ -191,13 +276,59 @@ export function sliceRecordsBySelection(
   records: SeqRecord[],
   selStart: number,
   selEnd: number
-): SeqRecord[] {
-  return records.map(record => {
+): { records: SeqRecord[]; losses: SelectionLoss[] } {
+  const losses: SelectionLoss[] = [];
+  const sliced = records.map(record => {
     const seq = record.alignedSequence || record.sequence;
     const slicedSeq = seq.substring(Math.max(0, selStart), Math.min(seq.length, selEnd));
+    const unchangedCircle = record.isCircular === true && slicedSeq === record.sequence && selStart <= 0 && selEnd >= seq.length;
+    const selectedRecord = { ...record, sequence: slicedSeq, isCircular: unchangedCircle };
 
     const slicedFeatures = record.features
-      .map(f => clipFeature(f, seq, selStart, selEnd))
+      .map(original => {
+        const bond = clipProteinBond(original, record, selStart, Math.min(selEnd, seq.length), losses);
+        if (bond !== undefined) return bond;
+        if (unchangedCircle) {
+          const stored = original.segments?.length ? original.segments : [original];
+          // A wrap with an empty origin-side piece is a single linear interval (LOC-6).
+          const hasEmptyWrapPiece = stored.some(part => part.start > part.end && (part.start === seq.length || part.end === 0));
+          if (!hasEmptyWrapPiece) return original;
+        }
+        const feature = selectionGeometry(original, seq.length, record.isCircular === true);
+        const result = clipFeature(feature, seq, selStart, selEnd, record.isCircular === true);
+        const loss = selectionFeature(record, feature);
+        const parts = featureParts(feature, { length: seq.length, isCircular: record.isCircular });
+        for (const part of parts) {
+          if (part.start === part.end && !siteNeighboursSelected(part.start, seq.length, record.isCircular === true, selStart, selEnd)) {
+            losses.push({ ...loss, reason: 'Between-base site omitted; both neighbouring bases must be selected' });
+          }
+        }
+        if (!result) return null;
+        const remoteCount = feature.remoteParts?.length ?? 0;
+        if (isCds(feature) && isOrderLocation(feature) && parts.length + remoteCount > 1
+          && result.segments?.length === 1 && remoteCount === 0) {
+          losses.push({ ...loss, reason: SINGLE_ORDER_CDS_OMISSION });
+          return null;
+        }
+        const clipped = parts.some(part => part.start < part.end && (part.start < selStart || part.end > selEnd));
+        if (clipped && isCds(feature)) losses.push({ ...loss, reason: 'CDS clipped; annotation continues beyond the selection' });
+        if (feature.translationExceptions) result.translationExceptions = selectedCodeBreaks(feature, record, result, selectedRecord, { start: selStart, end: selEnd }, losses);
+        if (result.metadata) { result.metadata = { ...result.metadata }; delete result.metadata._translationCheck; }
+        if (clipped && isCds(result)) {
+          const product = conceptualTranslation(result, selectedRecord);
+          result.metadata = { ...result.metadata, _translationSource: product.status === 'ok' && !product.internalStops.length ? 'computed' : 'removed' };
+          if (product.status === 'ok' && !product.internalStops.length) {
+            result.metadata.translation = product.residues;
+            result.metadata._translationMessage = 'Translation recomputed after selection clipping';
+          } else {
+            delete result.metadata.translation;
+            result.metadata._translationMessage = `Translation removed after selection clipping: ${translationReason(product, result)}`;
+          }
+          const notice = removeChangedProteinId(original, result, record);
+          if (notice) losses.push({ ...loss, reason: notice });
+        }
+        return result;
+      })
       .filter((f): f is BioFeature => f !== null);
 
     const slicedTracks = record.tracks?.map(track => ({
@@ -217,5 +348,36 @@ export function sliceRecordsBySelection(
       features: slicedFeatures,
       tracks: slicedTracks,
     };
+  });
+  return { records: sliced, losses };
+}
+
+function selectionFeature(record: SeqRecord, feature: BioFeature): Pick<SelectionLoss, 'record' | 'feature' | 'key'> {
+  return { record: record.id, feature: feature.name, key: feature.type };
+}
+
+function selectedCodeBreaks(
+  feature: BioFeature,
+  record: SeqRecord,
+  selectedFeature: BioFeature,
+  selectedRecord: SeqRecord,
+  selection: Pick<SelectionArea, 'start' | 'end'>,
+  losses: SelectionLoss[],
+): string[] {
+  const loss = selectionFeature(record, feature);
+  const candidates = geometryCodeBreakEvidence(feature, record, selection).flatMap(source => {
+    if (source.status === 'applied') return [{ source, value: source.rebased! }];
+    losses.push({ ...loss, occurrence: source.occurrence, raw: source.raw, reason: source.reason ?? source.status });
+    return source.status === 'dropped' ? [] : [{ source, value: source.raw }];
+  });
+  const evaluated = geometryCodeBreakEvidence({ ...selectedFeature, translationExceptions: candidates.map(item => item.value) }, selectedRecord);
+  return candidates.flatMap(({ source, value }, index) => {
+    const transformed = evaluated[index];
+    // Surviving bases can cease to be a codon when clipping removes other visits in a multipart CDS.
+    if (source.status === 'applied' && transformed.status !== 'applied') {
+      losses.push({ ...loss, occurrence: source.occurrence, raw: source.raw, reason: transformed.reason ?? transformed.status });
+      return [];
+    }
+    return [value];
   });
 }
