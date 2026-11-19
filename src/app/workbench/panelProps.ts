@@ -27,6 +27,7 @@ import type { Workbench } from './useWorkbench';
 export function viewerProps(w: Workbench): ComponentProps<typeof GenomeViewer> {
   const { view, nav, search, files, derived } = w;
   return {
+    addLog: w.addLog,
     records: w.bio.transposedRecords,
     consensus: w.bio.consensus,
     showAnnotations: view.showAnnotations,
@@ -50,7 +51,7 @@ export function viewerProps(w: Workbench): ComponentProps<typeof GenomeViewer> {
     onJumpComplete: () => view.setJumpTo(null),
     onExportRecord: files.handleExportRecord,
     onViewDetails: w.details.handleViewDetails,
-    isAlignmentLocked: w.remoteAlignment.isAlignmentLocked,
+    isAlignmentLocked: w.remoteAlignment.isAlignmentLocked || w.busy,
     onRemoveRecord: w.handleRemoveRecord,
     onClearSelection: () => nav.setActiveSelection(null),
     comparisonMenu: derived.comparable ? { settings: view.alignmentComparison, onChange: view.setAlignmentComparison, reference: derived.comparisonReference, candidates: derived.candidates } : null,
@@ -60,7 +61,7 @@ export function viewerProps(w: Workbench): ComponentProps<typeof GenomeViewer> {
 }
 
 export function hubPanelProps(w: Workbench): ComponentProps<typeof AnnotationHubPanel> {
-  const { files, features, remoteAlignment: remote } = w;
+  const { files, features } = w;
   return {
     toolsSlot: w.nav.hubToolsSlot,
     records: w.bio.records,
@@ -78,10 +79,10 @@ export function hubPanelProps(w: Workbench): ComponentProps<typeof AnnotationHub
     onUndoDelete: features.undoDelete,
     onSetRecordDetails: features.setRecordDetails,
     onSetRecordLabel: features.setRecordLabel,
-    onSetDetail: (ids, key, value) => { if (remote.isLocked()) return; w.bio.setRecords(prev => prev.map(record => ids.has(record.id) ? writeDetails(record, { [key]: value }) : record)); },
+    onSetDetail: (ids, key, value) => { if (w.isWorkspaceLocked()) return; w.bio.setRecords(prev => prev.map(record => ids.has(record.id) ? writeDetails(record, { [key]: value }) : record)); },
     featureColors: w.view.featureColors,
     onStartNewFeature: features.startNewFeature,
-    isAlignmentLocked: remote.isAlignmentLocked,
+    isAlignmentLocked: w.remoteAlignment.isAlignmentLocked || w.busy,
     onRemoveRecord: w.handleRemoveRecord,
     onViewFeatureDetails: w.details.handleViewDetails,
     onEditFeature: w.editHubFeature,

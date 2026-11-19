@@ -27,7 +27,7 @@ import type { ViewSettings } from './useViewSettings';
 /** Alignment facts and the reference comparison derived from the records. */
 export function useComparisonView(records: SeqRecord[], view: ViewSettings, isProteinSession: boolean) {
   const { alignmentComparison, setAlignmentComparison } = view;
-  const { isAlignmentLoaded, alignmentLength, sessionMoleculeType } = useMemo(
+  const { alignmentLength, sessionMoleculeType } = useMemo(
     () => deriveAlignmentState(records, isProteinSession),
     [records, isProteinSession],
   );
@@ -45,5 +45,5 @@ export function useComparisonView(records: SeqRecord[], view: ViewSettings, isPr
     (referenceId: string) => setAlignmentComparison(prev => withReference(prev, referenceId)),
     [setAlignmentComparison],
   );
-  return { isAlignmentLoaded, alignmentLength, sessionMoleculeType, comparable, candidates, comparisonReference, comparison, setComparisonReference };
+  return { alignmentLength, sessionMoleculeType, comparable, candidates, comparisonReference, comparison, setComparisonReference };
 }

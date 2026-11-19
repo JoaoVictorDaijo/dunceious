@@ -22,10 +22,11 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveAccession,
   applyParseSuccess,
+  logAttachedTranslationWarning,
   applyAnnotations,
   applyFastaResponse,
   applyFastaAndLog,
-  applyParseResponse,
+  remotePartsWarning,
 } from '../bioResponse';
 import type { SeqRecord, BioFeature, QuantitativeTrack } from '@/src/domain/bio/types';
 import { isDetailEdited, readDetails, writeDetails } from '@/src/domain/bio/details';
@@ -381,8 +382,8 @@ describe('applyFastaResponse residue integrity (#249)', () => {
 
 
 it('echoes the GenBank filename from the real worker handler', () => {
-  const result = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'camel.gb', content: 'LOCUS       LOCAL 4 bp DNA linear\nORIGIN\n        1 acgt\n//' });
-  expect(result).toMatchObject({ type: 'PARSE_SUCCESS', filename: 'camel.gb' });
+  const result = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'camel.gb', workspaceRevision: 7, incomingCategory: 'nucleotide', content: 'LOCUS       LOCAL 4 bp DNA linear\nORIGIN\n        1 acgt\n//' });
+  expect(result).toMatchObject({ type: 'PARSE_SUCCESS', filename: 'camel.gb', workspaceRevision: 7, incomingCategory: 'nucleotide' });
 });
 
 it('keeps imported provenance and file values intact during an alignment overlay', () => {
@@ -392,10 +393,10 @@ it('keeps imported provenance and file values intact during an alignment overlay
 });
 
 
-it('preserves circular topology from a whole-length GFF source through interchange exports', () => {
-  const imported = applyFastaResponse([], [{ id: 'circle', name: 'circle', sequence: 'A'.repeat(1000), features: [] }], false, 'circle.fa');
+it('preserves a matching circular record topology through interchange exports', () => {
+  const circular = rec({ id: 'circle', sequence: 'A'.repeat(1000), isCircular: true });
   const gff = parseGFF3('circle\ts\tregion\t1\t1000\t.\t+\t.\tgbkey=Src;Is_circular=true\ncircle\ts\tgene\t901\t1000\t.\t+\t.\tID=wrap\ncircle\ts\tgene\t1\t100\t.\t+\t.\tID=wrap');
-  const result = applyAnnotations(imported.next, gff.features, gff.details);
+  const result = applyAnnotations([circular], gff.features, gff.details);
   expect(result.next[0].isCircular).toBe(true);
   expect(result.next[0].features.find(f => f.type === 'gene')?.segments).toEqual([{ start: 900, end: 1000 }, { start: 0, end: 100 }]);
   expect(exportToGenBank(result.next).text).toMatch(/^LOCUS.*circular/m);
@@ -411,6 +412,17 @@ it('keeps a short circular Src candidate as an annotation without changing topol
   const result = applyAnnotations([rec({ id: 'a', sequence: 'A'.repeat(1000) })], gff.features, gff.details);
   expect(result.next[0].isCircular).toBeUndefined();
   expect(result.next[0].features[0].type).toBe('region');
+});
+
+it('refuses a wrapped GFF3 feature on a linear target even when the source region length differs', () => {
+  const record: SeqRecord = { id: 'x', name: 'x', sequence: 'AGCTGACCTGAAA', features: [] };
+  const { features, details } = parseGFF3([
+    'x\t.\tregion\t1\t12\t.\t+\t.\tID=x;gbkey=Src;Is_circular=true',
+    'x\t.\tgene\t7\t15\t.\t+\t.\tID=wrap',
+  ].join('\n'));
+  const result = applyAnnotations([record], features, details);
+  expect(result).toMatchObject({ totalAdded: 0, refusal: 'GFF3 landmark x has a wrapped feature wrap, but sequence x is linear.' });
+  expect(result.next[0]).toBe(record);
 });
 
 it('treats GFF-filled historical details as file data and keeps them in every interchange export', () => {
@@ -560,69 +572,91 @@ describe('FASTA loaded as sequences drops "-" gap characters (#267)', () => {
   });
 });
 
-describe('one molecule category per workspace, checked on every parsed record', () => {
-  const parsed = (content: string) => {
-    const response = handleBioMessage({ type: 'PARSE_FASTA', filename: 'in.fa', content });
-    if (response.type !== 'FASTA_SUCCESS') throw new Error(`unexpected ${response.type}`);
-    return response.alignedData;
-  };
-  const dna = [rec({ id: 'kept', sequence: 'ACGT', moleculeType: 'dna' })];
-  // Three DNA records first, so a preview of the first records sees only nucleotide.
-  const mixedFile = '>d1\nACGT\n>d2\nACGT\n>d3\nACGT\n>p1\nMEEPQSDPSV\n';
-
-  it.each([
-    ['a mixed file into an empty workspace', [] as SeqRecord[], mixedFile, { incoming: 'mixed', loaded: null }],
-    ['a mixed file into a nucleotide workspace', dna, mixedFile, { incoming: 'mixed', loaded: 'nucleotide' }],
-    ['a peptide file into a nucleotide workspace', dna, '>p1\nMEEPQSDPSV\n', { incoming: 'protein', loaded: 'nucleotide' }],
-  ])('refuses %s and leaves the workspace untouched', (_case, prev, content, conflict) => {
-    expect(applyFastaResponse(prev, parsed(content), false, 'in.fa')).toEqual({ next: prev, kind: 'reject-session-type', conflict });
+// Owner decision 9 (Murilo, #245): one warning per file names the features with remote parts.
+describe('remotePartsWarning', () => {
+  const remote = (name: string, accession: string): BioFeature => ({ type: 'CDS', name, start: 0, end: 1, strand: 1,
+    remoteParts: [{ accession, start: 0, end: 3, strand: 1, index: 1 }] });
+  it('is null without remote parts', () => {
+    expect(remotePartsWarning([{ id: 'a', name: 'a', sequence: 'A', features: [] }])).toBeNull();
   });
-
-  it('accepts DNA and RNA together as one nucleotide category', () => {
-    const result = applyFastaResponse(dna, parsed('>r\nACGU\n>d\nACGT\n'), false, 'in.fa');
-    expect(result.kind).toBe('batch');
-    expect(result.next.map(r => r.moleculeType)).toEqual(['dna', 'rna', 'dna']);
-  });
-
-  it('checks GenBank records the same way', () => {
-    const protein = rec({ id: 'p', sequence: 'MEEP', moleculeType: 'protein' });
-    expect(applyParseResponse(dna, [protein], 'p.gb')).toEqual({ next: dna, kind: 'reject-session-type', conflict: { incoming: 'protein', loaded: 'nucleotide' } });
-    const added = applyParseResponse(dna, [rec({ id: 'n', sequence: 'ACGT', moleculeType: 'dna' })], 'n.gb');
-    expect(added.kind).toBe('batch');
-    expect(added.next.map(r => r.id)).toEqual(['kept', 'n']);
-  });
-
-  it('logs the refusal with the file name', () => {
-    const logs: string[] = [];
-    applyFastaAndLog([], parsed(mixedFile), false, message => logs.push(message), 'mixed.fa');
-    applyFastaAndLog(dna, parsed('>p1\nMEEPQSDPSV\n'), false, message => logs.push(message), 'p.fa');
-    expect(logs).toEqual([
-      'ERROR: mixed.fa was not loaded: it mixes nucleotide and peptide records, and a workspace holds one molecule type.',
-      'ERROR: p.fa was not loaded: its peptide records do not match the nucleotide workspace.',
-    ]);
+  it('names each feature and its accessions', () => {
+    expect(remotePartsWarning([{ id: 'a', name: 'a', sequence: 'A', features: [remote('cds1', 'J00194.1'), remote('cds2', 'AB000001.2')] }]))
+      .toBe("WARNING: 2 annotations have intervals in other records, which Dunceious doesn't load (cds1: J00194.1; cds2: AB000001.2). Their sequence and translation aren't shown.");
   });
 });
 
-describe('alignment overlay refuses a record that appears more than once', () => {
-  const fa = (id: string, sequence: string) => ({ id, name: id, sequence, features: [] as BioFeature[], moleculeType: 'dna' as const });
-  const prev = [rec({ id: 'a', sequence: 'ACGT' }), rec({ id: 'b', sequence: 'ACGT' })];
-
+ describe('empty workspace pre-aligned import', () => {
+  const rows = (text: string) => {
+    const reply = handleBioMessage({ type: 'PARSE_FASTA', filename: 'aligned.fa', content: text, asAlignment: true });
+    if (reply.type !== 'FASTA_SUCCESS') throw new Error(reply.type);
+    return reply.alignedData;
+  };
+  it('loads residues, alignment, provenance and the batch map', () => {
+    const result = applyFastaResponse([], rows('>a\nAC--GT\n>b\nACTTGT'), true, 'aligned.fa');
+    expect(result.kind).toBe('aligned-load');
+    expect(result.next.map(r => [r.id, r.sequence, r.alignedSequence, r.importedFrom])).toEqual([
+      ['a', 'ACGT', 'AC--GT', 'aligned.fa'], ['b', 'ACTTGT', 'ACTTGT', 'aligned.fa'],
+    ]);
+    expect(result).toMatchObject({ idMap: { a: 'a', b: 'b' } });
+  });
   it.each([
-    ['differently gapped rows', [fa('a', 'AC-GT'), fa('a', 'ACGT-'), fa('b', 'ACGT-')]],
-    ['identical rows', [fa('a', 'ACGT-'), fa('a', 'ACGT-'), fa('b', 'ACGT-')]],
-  ])('for %s, leaving the workspace untouched', (_case, rows) => {
-    expect(applyFastaResponse(prev, rows, true)).toEqual({ next: prev, kind: 'reject-duplicate', ids: ['a'] });
+    ['>a\nAC--GT\n>b\nACTGT', 'reject-length'],
+    ['>a\nAC..GT', 'reject-dot-gap'],
+    ['>a\n', 'reject-empty'],
+    ['>a\n------', 'reject-no-residues'],
+  ])('refuses %s without loading anything', (text, kind) => {
+    expect(applyFastaResponse([], rows(text), true)).toMatchObject({ kind, next: [] });
   });
+  it('deduplicates IDs and reports ambiguity', () => {
+    const result = applyFastaResponse([], rows('>a\nAC--GT\n>a\nACTTGT'), true);
+    expect(result.next.map(r => r.id)).toEqual(['a', 'a_1']);
+    expect(result).toMatchObject({ idMap: { a: null } });
+  });
+  it('removes and counts dot gaps on batch imports', () => {
+    const result = applyFastaResponse([], rows('>a\nAC..GT'), false);
+    expect(result.next[0].sequence).toBe('ACGT');
+    expect(result).toMatchObject({ gapsRemoved: [{ id: 'a', removed: 2 }] });
+  });
+});
 
-  it('compares IDs after header resolution, so "seq 1" and "seq 2" are different records', () => {
-    const spaced = [rec({ id: 'seq 1', sequence: 'ACGT' }), rec({ id: 'seq 2', sequence: 'ACGT' })];
-    const rows = [{ ...fa('seq', 'ACGT-'), header: '1' }, { ...fa('seq', 'AC-GT'), header: '2' }];
-    expect(applyFastaResponse(spaced, rows, true).kind).toBe('overlay');
-  });
+it.each(['M', 'MKV', 'MVV', 'MK'])('checks GFF3 protein %s only after DNA attachment', translation => {
+  const parsed = parseGFF3(`r\tx\tCDS\t1\t9\t.\t+\t0\tID=c;translation=${translation}`);
+  const result = applyAnnotations([rec({ id: 'r', sequence: 'ATGAAATAA' })], parsed.features);
+  const f = result.next[0].features[0];
+  expect(f.metadata?.translation).toBe(translation);
+  expect(f.metadata?._translationSource).toBe('imported');
+  const checked = JSON.parse(f.metadata!._translationCheck);
+  expect(checked.residues).toBe('MK');
+  expect(checked.comparison).toEqual({ differing: translation === 'MVV' ? [1] : [], storedExtra: translation.slice(2), storedShortBy: translation === 'M' ? 1 : 0 });
+});
 
-  it('logs the repeated IDs', () => {
-    const logs: string[] = [];
-    applyFastaAndLog(prev, [fa('a', 'ACGT'), fa('a', 'ACGT'), fa('b', 'ACGT')], true, message => logs.push(message));
-    expect(logs).toEqual(['ERROR: Each record may appear only once in an alignment; repeated: [a]']);
-  });
+it.each(['M', 'MKV', 'MK'])('counts imported discrepancies once on both paths for %s', async translation => {
+  const { translationWarning } = await import('@/src/domain/bio/translation');
+  const content = `LOCUS       r       9 bp    DNA             linear
+FEATURES             Location/Qualifiers
+     CDS             1..9
+                     /translation="${translation}"
+ORIGIN
+        1 atgaaataa
+//`;
+  const message = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'literal.gb', content });
+  if (message.type !== 'PARSE_SUCCESS') throw new Error(`unexpected ${message.type}`);
+  const expected = translation === 'MK' ? null : 'WARNING: 1 CDS have a /translation that differs from their DNA';
+  expect(translationWarning(message.records)).toBe(expected);
+  expect(message.records[0].features[0]).not.toHaveProperty('translation');
+  const annotations = parseGFF3(`r\tx\tCDS\t1\t9\t.\t+\t0\tID=c;translation=${translation}`);
+  const attached = applyAnnotations([rec({ id: 'r', sequence: 'ATGAAATAA' })], annotations.features).next;
+  expect(translationWarning(attached)).toBe(expected);
+  attached[0].features[0].metadata!.exception = 'RNA editing';
+  expect(translationWarning(attached)).toBeNull();
+});
+
+it('warns for this attachment once, excluding preexisting discrepant CDSs', () => {
+  const original = parseGFF3('r\tx\tCDS\t1\t9\t.\t+\t0\tID=old;translation=MV');
+  const previous = applyAnnotations([rec({ id: 'r', sequence: 'ATGAAATAA' })], original.features).next;
+  const incoming = parseGFF3('r\tx\tCDS\t1\t9\t.\t+\t0\tID=new;translation=M');
+  const next = applyAnnotations(previous, incoming.features).next;
+  const logs: string[] = [];
+  logAttachedTranslationWarning(previous, next, message => logs.push(message));
+  expect(logs).toEqual(['WARNING: 1 CDS have a /translation that differs from their DNA']);
 });

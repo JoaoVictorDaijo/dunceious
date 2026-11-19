@@ -23,15 +23,14 @@
  * operate on raw residue strings: reverse-complement, codon translation,
  * molecule-type detection, and gap↔ungapped coordinate mapping.
  *
- * This module imports only sibling `domain` modules (`./intervals`, for
- * `splitWrapAround` — a legal `domain`→`domain` import per spec §4.1); every
- * export is a pure function over strings/number arrays.
  */
 
+import { checkedTranslation, storedTranslation } from './translation';
+import { validCodonStart } from './codonStart';
 import { NCBI_GENETIC_CODES } from './geneticCodes';
-import { splitWrapAround } from './intervals';
+import { featureParts, hasPartialStrands, invalidLocationPart } from './featureParts';
 import { isThreePrimePartialLocation } from './locationFlags';
-import type { SeqRecord } from './types';
+import type { BioFeature, SeqRecord } from './types';
 
 // ---------------------------------------------------------------------------
 // Reverse complement
@@ -85,6 +84,18 @@ const codonIndex = (codon: string): number => {
   return index;
 };
 
+/**
+ * Initiation Met from NCBI gc.prt 4.6's Starts (`sncbieaa`) row; unknown codes,
+ * ambiguous bases and non-triplets make no claim. DNA/RNA and case follow translateSequence.
+ * Callers must establish a 5′-complete CDS with /codon_start=1 before applying this residue
+ * (NCBI C++ Toolkit 912b751, sequence.cpp x_Translate: is_5prime_complete && frame == 0).
+ */
+export const initiatorResidue = (codon: string, translTable: number): 'M' | undefined => {
+  if (codon.length !== 3) return undefined;
+  const index = codonIndex(codon.toUpperCase().replace(/U/g, 'T'));
+  return index >= 0 && NCBI_GENETIC_CODES[translTable]?.starts[index] === 'M' ? 'M' : undefined;
+};
+
 /** Whether `id` is one of the NCBI genetic codes (`/transl_table` values) in gc.prt. */
 export const isNcbiGeneticCode = (id: number): boolean => Object.hasOwn(NCBI_GENETIC_CODES, id);
 
@@ -131,6 +142,8 @@ type LocatedFeature = {
   start: number;
   end: number;
   segments?: { start: number; end: number; strand?: 1 | -1 }[];
+  biological?: LocatedFeature;
+  remoteParts?: BioFeature['remoteParts'];
 };
 
 /**
@@ -147,21 +160,34 @@ type LocatedFeature = {
  *
  * @param feature  A BioFeature-like object with strand, start, end and optional segments.
  * @param seq      Raw or aligned record sequence, in the feature's coordinate space.
+ * @param topology Source topology and known biological length, avoiding a full aligned-sequence scan.
  * @returns        `{ featureSeq, alignedIndices }`.
  */
 export function extractFeatureSequence(
   feature: LocatedFeature,
   seq: string,
   alphabet: 'dna' | 'rna' | 'protein' = 'dna',
+  topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
 ): { featureSeq: string; alignedIndices: number[] } {
-  const seqLen = seq.length;
-  let segments: { start: number; end: number; strand?: 1 | -1 }[];
+  const { featureSeq, alignedIndices } = extractLocatedSequence(feature, seq, alphabet, topology);
+  return { featureSeq, alignedIndices };
+}
 
-  if (feature.segments && feature.segments.length > 0) {
-    segments = feature.segments;
-  } else {
-    segments = splitWrapAround(feature.start, feature.end, seqLen);
+function extractLocatedSequence(
+  feature: LocatedFeature,
+  seq: string,
+  alphabet: 'dna' | 'rna' | 'protein',
+  topology: { isCircular?: boolean; biologicalLength?: number },
+): { featureSeq: string; alignedIndices: number[]; baseStrands?: (1 | -1)[] } {
+  if (feature.remoteParts?.length) return { featureSeq: '', alignedIndices: [] };
+  const record = { length: seq.length, isCircular: topology.isCircular };
+  const source = feature.biological ?? feature;
+  const sourceRecord = { ...record, length: feature.biological ? topology.biologicalLength ?? seq.replace(/-/g, '').length : seq.length };
+  const stored = source.segments?.length ? source.segments : [source];
+  if (hasPartialStrands(source) || stored.some(part => invalidLocationPart(part, sourceRecord))) {
+    return { featureSeq: '', alignedIndices: [] };
   }
+  const segments = featureParts(feature, record);
 
   const oriented = alphabet !== 'protein';
   let featureSeq = '';
@@ -170,6 +196,8 @@ export function extractFeatureSequence(
   // Mixed-strand (trans-spliced) features carry a per-segment strand: orient
   // each segment individually, in join order, with no whole-feature flip.
   const perSegmentStrand = segments.some(s => s.strand !== undefined);
+  const baseStrands: (1 | -1)[] | undefined = oriented && perSegmentStrand
+    && segments.some(s => (s.strand ?? 1) !== feature.strand) ? [] : undefined;
 
   if (perSegmentStrand) {
     segments.forEach(seg => {
@@ -187,7 +215,10 @@ export function extractFeatureSequence(
         segIndices.reverse();
       }
       featureSeq += segSeq;
-      for (const index of segIndices) alignedIndices.push(index);
+      for (const index of segIndices) {
+        alignedIndices.push(index);
+        baseStrands?.push(seg.strand ?? 1);
+      }
     });
   } else {
     segments.forEach(seg => {
@@ -206,7 +237,7 @@ export function extractFeatureSequence(
     }
   }
 
-  return { featureSeq, alignedIndices };
+  return { featureSeq, alignedIndices, baseStrands };
 }
 
 /**
@@ -215,28 +246,30 @@ export function extractFeatureSequence(
  *
  * `/codon_start` (1, 2, or 3) is honored last, against the fully-oriented coding
  * sequence: the leading `codon_start - 1` bases (and their `alignedIndices`) are
- * dropped so translation begins in the right frame. Absent or invalid values
- * default to frame 1 (no offset).
+ * dropped so translation begins in the right frame. Absent values default to frame 1; invalid values suppress translation.
  *
  * @param feature  A BioFeature-like object with strand, start, end, optional segments, and optional metadata (read for `codon_start`).
  * @param seq      Raw or aligned genome sequence, in the feature's coordinate space.
- * @returns        `{ codingSeq, alignedIndices }` ready for codon-by-codon rendering.
+ * @returns        Coding residues and aligned indices, plus per-base strands when orientation varies from the feature strand.
  */
 export function extractCodingSequence(
   feature: LocatedFeature & { metadata?: Record<string, any> },
-  seq: string
-): { codingSeq: string; alignedIndices: number[] } {
-  const { featureSeq, alignedIndices } = extractFeatureSequence(feature, seq);
+  seq: string,
+  topology: { isCircular?: boolean; biologicalLength?: number } = { isCircular: true },
+): { codingSeq: string; alignedIndices: number[]; baseStrands?: (1 | -1)[] } {
+  if (!validCodonStart(feature.metadata?.codon_start)) return { codingSeq: '', alignedIndices: [] };
+  const { featureSeq, alignedIndices, baseStrands } = extractLocatedSequence(feature, seq, 'dna', topology);
   let codingSeq = featureSeq;
 
-  const codonStart = parseInt(String(feature.metadata?.codon_start ?? '1'), 10);
+  const codonStart = Number(feature.metadata?.codon_start ?? '1');
   const offset = Number.isFinite(codonStart) && codonStart > 1 ? codonStart - 1 : 0;
   if (offset > 0) {
     codingSeq = codingSeq.slice(offset);
     alignedIndices.splice(0, offset);
+    baseStrands?.splice(0, offset);
   }
 
-  return { codingSeq, alignedIndices };
+  return { codingSeq, alignedIndices, ...(baseStrands && { baseStrands }) };
 }
 
 /**
@@ -265,8 +298,8 @@ export function detectEarlyStop(codingSeq: string, translTable = 1): boolean {
   return false;
 }
 
-/** A feature as {@link translateFeature} reads it: the stored protein and the location text. */
-type TranslatedFeature = { translation?: string; locationString?: string };
+/** A feature as {@link translateFeature} reads it: the stored protein and its location's 3′ end. */
+type TranslatedFeature = { metadata?: Record<string, unknown> } & Partial<Pick<BioFeature, 'strand' | 'segments'>>;
 
 /**
  * A complete CDS ends at a codon that terminates: where the code lets that codon be a stop or a
@@ -311,7 +344,7 @@ export function translateFeature(
   translTable = 1,
 ): string {
   const computed = terminateLastCodon(feature, codingSeq, translTable, translateSequence(codingSeq, translTable));
-  const stored = feature.translation;
+  const stored = storedTranslation(feature);
   if (!stored) return computed;
   let protein = '';
   for (let i = 0; i < computed.length; i++) {
@@ -320,28 +353,22 @@ export function translateFeature(
   return protein;
 }
 
-/**
- * Whether a feature's protein carries an internal (early) stop — a "broken" CDS.
- *
- * Prefers the authoritative `/translation`: an annotated protein with no internal
- * stop is not broken, which avoids the false positive recomputation raises for a
- * `transl_except` recoding (e.g. a selenocysteine TGA read as a stop under the
- * base code). A trailing stop is tolerated as normal termination. Falls back to
- * {@link detectEarlyStop} on `codingSeq` when `/translation` is absent.
- *
- * The stored translation is trusted as-is: a stale/edited one that truncates
- * before a real internal stop is not flagged. Standard GenBank stays covered —
- * a real internal stop is written `*` (caught here) and pseudogenes omit
- * `/translation` (recomputed via the fallback).
- */
+/** CDS stop status from the shared model; unavailable translation makes no stop claim. */
+export function isFeatureBroken(feature: BioFeature, record: Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular'> & { biologicalLength?: number }): boolean | undefined;
+/** Coding-string primitive for callers that already own eligibility, such as ORF display. */
+export function isFeatureBroken(feature: { metadata?: Record<string, unknown> }, codingSeq: string, translTable?: number): boolean;
 export function isFeatureBroken(
-  feature: { translation?: string },
-  codingSeq: string,
+  feature: { metadata?: Record<string, unknown> },
+  input: string | Pick<SeqRecord, 'sequence' | 'moleculeType' | 'isCircular'> & { biologicalLength?: number },
   translTable = 1,
-): boolean {
-  const stored = feature.translation;
-  if (stored) return /[_*]/.test(stored.slice(0, -1));
-  return detectEarlyStop(codingSeq, translTable);
+): boolean | undefined {
+  if (typeof input !== 'string') {
+    const result = checkedTranslation(feature as BioFeature, input);
+    return result.status === 'ok' ? result.internalStops.length > 0 : undefined;
+  }
+  if (!validCodonStart(feature.metadata?.codon_start) || !isNcbiGeneticCode(translTable)) return false;
+  if (feature.metadata?.transl_except !== undefined) return false;
+  return detectEarlyStop(input, translTable);
 }
 
 // ---------------------------------------------------------------------------
@@ -387,9 +414,9 @@ export const detectMoleculeType = (seq: string): 'dna' | 'rna' | 'protein' => {
  * (mRNA, rRNA, tRNA, ncRNA…); everything else is DNA.
  */
 export const classifyLocusMoleculeType = (locusLine: string): 'dna' | 'rna' | 'protein' => {
-  const lower = locusLine.toLowerCase();
-  if (/\baa\b/.test(lower)) return 'protein';
-  if (lower.includes('rna')) return 'rna';
+  const [, , , unit, molecule] = locusLine.trim().split(/\s+/);
+  if (/^aa$/i.test(unit)) return 'protein';
+  if (/^bp$/i.test(unit) && /rna$/i.test(molecule)) return 'rna';
   return 'dna';
 };
 

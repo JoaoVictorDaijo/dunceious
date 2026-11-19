@@ -22,7 +22,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, installCanvasRecorder, within } from '@/src/app/testing/renderHarness';
+import { render, installCanvasRecorder, within, act } from '@/src/app/testing/renderHarness';
 import { fireEvent } from '@testing-library/react';
 import { processTransposition } from '@/src/domain/bio/coordinate';
 import { Row, type RowData } from '@/src/app/viewer/Row';
@@ -377,8 +377,8 @@ describe('aligned circular connectors', () => {
 
 
 const coding: BioFeature[] = [
-  { type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1 },
-  { type: 'CDS', name: 'rev', start: 40, end: 70, strand: -1 },
+  { type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1, segments: [{ start: 0, end: 30 }] },
+  { type: 'CDS', name: 'rev', start: 40, end: 70, strand: -1, segments: [{ start: 40, end: 70 }] },
 ];
 
 describe('translation rows and geometry', () => {
@@ -411,7 +411,7 @@ describe('translation rows and geometry', () => {
 
 
 it('keeps a record selection aligned with the full effective row height', () => {
-  const record = rec([{ type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1 }]);
+  const record = rec([{ type: 'CDS', name: 'fwd', start: 0, end: 30, strand: 1, segments: [{ start: 0, end: 30 }] }]);
   const makeData = (zoomLevel: number) => rowData(record, {
     zoomLevel, showTranslation: true, persistentSelection: { start: 2, end: 6, recordIds: ['r'] },
   });
@@ -498,6 +498,11 @@ describe('record selection and focus label', () => {
     const { getByText } = renderRow(rec([]), { persistentSelection: selected, focusedRegion: focused });
     // The focus label anchors to the region's genomic start.
     expect(getByText('spike · 20 bp').style.left).toBe('80px');
+  });
+
+  it('labels a focused protein region in amino acids', () => {
+    const { getByText } = renderRow({ ...rec([]), moleculeType: 'protein' }, { persistentSelection: selected, focusedRegion: focused });
+    expect(getByText('spike · 20 aa')).toBeTruthy();
   });
 
   it('holds the label at the view edge while the region start is scrolled away', () => {
@@ -608,5 +613,128 @@ describe('reference badge', () => {
   it('leaves other rows and the uncompared view unmarked', () => {
     expect(renderRow(rec([]), { comparison: comparison('other') }).container.querySelector('[data-reference-badge]')).toBeNull();
     expect(renderRow(rec([])).container.querySelector('[data-reference-badge]')).toBeNull();
+  });
+});
+
+it.each([false, true])('draws no glyph for a zero-width join part (aligned=%s)', aligned => {
+  const source = rec([{ type: 'gene', name: 'site join', start: 0, end: 5, strand: 1, segments: [{ start: 0, end: 3 }, { start: 5, end: 5 }] }]);
+  const record = aligned ? processTransposition([{ ...source, alignedSequence: source.sequence }])[0] : source;
+  const setTooltip = vi.fn();
+  const { container } = renderRow(record, { setTooltip });
+  expect(glyphs(container)).toHaveLength(1);
+  expect(container.querySelector('[data-frameshift]')).toBeNull();
+  fireEvent(glyphs(container)[0], Object.assign(new MouseEvent('pointerover', { bubbles: true }), { pointerType: 'mouse' }));
+  expect(setTooltip.mock.calls.at(-1)?.[0].content).not.toContain('Ribosomal frameshift');
+});
+
+
+it.each([
+  { strand: 1, siteFirst: true },
+  { strand: 1, siteFirst: false },
+  { strand: -1, siteFirst: true },
+  { strand: -1, siteFirst: false },
+] as const)('keeps the drawable label and arrow with sites: %j', ({ strand, siteFirst }) => {
+  const bar = { start: 6, end: 26 };
+  const site = { start: siteFirst ? 3 : 30, end: siteFirst ? 3 : 30 };
+  const source = rec([{ type: 'gene', name: 'real bar', start: 3, end: 30, strand,
+    segments: siteFirst ? [site, bar] : [bar, site] }]);
+  const record = processTransposition([{ ...source, alignedSequence: source.sequence }])[0];
+  const { container } = renderRow(record);
+  expect(glyphs(container)).toHaveLength(1);
+  expect(container.querySelector('[data-annotation-name]')?.textContent).toContain('real bar');
+  expect(glyphs(container)[0].getAttribute('d')).toMatch(strand === 1 ? /L208,/ : /L48,/);
+});
+
+
+it('bounds whole-sequence length recovery independently of aligned CDS count', () => {
+  const seq = 'ATG--TAGGAG';
+  const features: BioFeature[] = Array.from({ length: 24 }, (_, i) => ({
+    type: 'CDS', name: `cds-${i}`, start: 0, end: seq.length, strand: 1,
+    biological: { start: 0, end: 9, strand: 1 },
+  }));
+  const record = rec(features);
+  record.sequence = 'ATGTAGGAG';
+  record.alignedSequence = seq;
+  const data = rowData(record);
+  const replacement = vi.spyOn(String.prototype, 'replace');
+  try {
+    render(<Row index={0} style={{}} data={data} />);
+    expect(replacement.mock.calls.filter(([pattern], i) =>
+      String(pattern) === '/-/g' && String(replacement.mock.contexts[i]) === seq).length).toBeLessThanOrEqual(1);
+  } finally {
+    replacement.mockRestore();
+  }
+});
+
+it.each(['dna', 'protein'] as const)('marks the own-position end of a mixed unaligned %s row', moleculeType => {
+  const raw: SeqRecord = { id: 'u', name: 'u', sequence: 'ACGT', moleculeType, features: [] };
+  const aligned = { ...raw, id: 'a', alignedSequence: 'AC--GT' };
+  const data = rowData(raw);
+  data.recordLayouts = computeRecordLayouts([raw, aligned], { showAnnotations: false, translationVisible: false, showTracks: false, basesVisible: true });
+  const view = render(<Row index={0} style={{}} data={data} />);
+  expect(view.container.querySelector<HTMLElement>('[data-unaligned]')?.style.borderStyle).toBe('dashed');
+  const tick = view.container.querySelector<HTMLElement>('[data-unaligned-end]')!;
+  expect(tick.style.left).toBe('32px');
+  expect(tick.getAttribute('data-tip')).toBe(`u ends here: 4 ${moleculeType === 'protein' ? 'aa' : 'bp'}, not aligned`);
+});
+
+
+it.each([undefined, 'AC--GT'])('selects the whole interval envelope and reports biological tooltip coordinates: %s', alignedSequence => {
+  const recorder = installCanvasRecorder();
+  const source: SeqRecord = { id: 'r', name: 'r', sequence: alignedSequence ? 'ACGT' : 'A'.repeat(100), alignedSequence, features: [], tracks: [{ id: 'q', name: 'Coverage', data: [{ start: 0, end: alignedSequence ? 4 : 100, value: 7 }] }] };
+  const record = processTransposition([source])[0];
+  const onSelectionChange = vi.fn(), setTooltip = vi.fn();
+  const layout = computeRecordLayouts([record], { showAnnotations: false, translationVisible: false, showTracks: true })[0];
+  const view = renderRow(record, { showTracks: true, recordLayouts: [layout], onSelectionChange, setTooltip });
+  const track = view.container.querySelector('[data-quantitative-track]')!;
+  fireEvent.doubleClick(track, { clientX: (alignedSequence ? 1 : 15) * ZOOM, clientY: 8 });
+  expect(onSelectionChange).toHaveBeenCalledWith({ start: 0, end: alignedSequence ? 6 : 100, recordIds: ['r'] });
+  act(() => track.dispatchEvent(new MouseEvent('pointermove', {bubbles:true,clientX:(alignedSequence ? 4 : 15)*ZOOM,clientY:8})));
+  expect(setTooltip.mock.lastCall?.[0].content).toContain(`Pos: ${alignedSequence ? 3 : 16}`);
+  expect(setTooltip.mock.lastCall?.[0].content).toContain(`Interval 1..${alignedSequence ? 4 : 100}`);
+  if (alignedSequence) {
+    const outlines = recorder.strokeRects().filter(stroke => stroke.color === '#6366f1');
+    expect(outlines.map(stroke => [stroke.rect[0], stroke.rect[2]])).toEqual([[0.5, 15], [32.5, 15]]);
+  }
+});
+
+it('picks only the interval in the pointed packed lane', () => {
+  const record = processTransposition([{ id: 'r', name: 'r', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [], tracks: [{ id: 'q', name: 'q', kind: 'interval' as const, data: [{start:0,end:4,value:2},{start:1,end:4,value:5}] }] }])[0];
+  const onSelectionChange=vi.fn();
+  const layout=computeRecordLayouts([record],{showAnnotations:false,translationVisible:false,showTracks:true})[0];
+  const view=renderRow(record,{showTracks:true,recordLayouts:[layout],onSelectionChange});
+  fireEvent.doubleClick(view.container.querySelector('[data-quantitative-track]')!,{clientX: 1*ZOOM,clientY:22});
+  expect(onSelectionChange).toHaveBeenCalledWith({start:1,end:6,recordIds:['r']});
+});
+
+// LOC-2: order() intervals are placed, not joined, so no connector or frameshift mark is drawn
+// between them, though each interval is still a bar. Locations parsed from their INSDC text.
+describe('Row – order() and between-base sites', () => {
+  const fromLocation = (name: string, location: string): BioFeature => {
+    const parsed = parseLocation(location);
+    return { type: 'misc_feature', name, strand: parsed.strand, start: parsed.start, end: parsed.end,
+      segments: parsed.segments, operator: parsed.operator, betweenBases: parsed.betweenBases };
+  };
+
+  it('draws an order() feature as separate bars with no connectors or frameshift marks', () => {
+    const { container } = renderRow(rec([fromLocation('pocket', 'order(10..15,17..22,40..45)')]));
+    expect(container.querySelectorAll('[data-annotation-part]')).toHaveLength(3);
+    expect(container.querySelectorAll('[data-annotation-connector]')).toHaveLength(0);
+    expect(container.querySelector('[data-frameshift]')).toBeNull();
+    expect(container.querySelector('.annot-order')).not.toBeNull();
+  });
+
+  it('still connects and marks the same intervals under join', () => {
+    const { container } = renderRow(rec([fromLocation('cds', 'join(10..15,17..22,40..45)')]));
+    expect(container.querySelectorAll('[data-annotation-connector]').length).toBeGreaterThan(0);
+    expect(container.querySelector('[data-frameshift]')?.getAttribute('data-frameshift')).toBe('1');
+    expect(container.querySelector('.annot-order')).toBeNull();
+  });
+
+  it('draws a between-base site as a mark at the boundary, not a bar', () => {
+    const { container } = renderRow(rec([fromLocation('cut', '10^11')]));
+    const site = container.querySelector('[data-annotation-site]');
+    expect(site?.getAttribute('data-x')).toBe(String(10 * ZOOM));
+    expect(container.querySelectorAll('path[data-annotation-part]')).toHaveLength(0);
   });
 });

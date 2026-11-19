@@ -61,7 +61,7 @@ function searchClearer(clearSearch: () => void, nav: Navigation) {
 interface FilesDeps { bio: Bio; view: ViewSettings; nav: Navigation; hubState: HubState; addLog: (m: string) => void; isLocked: () => boolean; onWorkspaceReplaced: () => void }
 
 function useWorkbenchFiles({ bio, view, nav, hubState, addLog, isLocked, onWorkspaceReplaced }: FilesDeps) {
-  const files = useFileHandlers(
+  return useFileHandlers(
     bio.bioWorkerRef, bio.records, nav.activeSelection, view.featureColors,
     { showAnnotations: view.showAnnotations, showTranslation: view.showTranslation, showConservation: view.showConservation, alignmentComparison: view.alignmentComparison },
     {
@@ -72,7 +72,6 @@ function useWorkbenchFiles({ bio, view, nav, hubState, addLog, isLocked, onWorks
     addLog, isLocked,
     { requestBio: bio.requestBio, getRecords: bio.getRecords, getWorkspaceRevision: () => hubState.workspaceRevision.current },
   );
-  return { ...files, sessionMismatch: files.moleculeTypeMismatch ?? bio.sessionTypeNotice };
 }
 
 /** Clearing asks every time: it is irreversible, so there is no opt-out. */
@@ -95,7 +94,12 @@ export function useWorkbench() {
   const nav = useNavigation();
   // Session state belongs above the keyed workspace content so tab switches preserve it.
   const hubState = useHubState();
-  const bio = useBioWorker(addLog);
+  const bio = useBioWorker(addLog, {
+    getWorkspaceRevision: () => hubState.workspaceRevision.current,
+    isAlignmentLocked: (): boolean => remoteAlignment.isLocked(),
+    onMismatch: error => files.showMismatchModal(error),
+  });
+  const busy = bio.isProcessing || bio.pendingConfirmations.length > 0;
   const { records, setRecords } = bio;
   const remoteAlignment = useRemoteAlignment(records, bio.applyAlignmentOverlay, addLog);
   const remapHubRows = useRemapHubRows(nav, hubState);
@@ -104,25 +108,27 @@ export function useWorkbench() {
   const handleClearSearch = searchClearer(search.clearSearch, nav);
   const resetHubWorkspace = () => {
     handleClearSearch();
+    bio.invalidateImports('the workspace was replaced');
     hubState.resetWorkspace();
     features.dismissUndo();
     nav.setHubFocus(null);
     nav.setShowHubReturn(false);
   };
-  const files = useWorkbenchFiles({ bio, view, nav, hubState, addLog, isLocked: remoteAlignment.isLocked, onWorkspaceReplaced: resetHubWorkspace });
+  const isWorkspaceLocked = () => remoteAlignment.isLocked() || busy;
+  const files = useWorkbenchFiles({ bio, view, nav, hubState, addLog, isLocked: isWorkspaceLocked, onWorkspaceReplaced: resetHubWorkspace });
   const details = useRecordDetails(records, bio.transposedRecords, setRecords);
   // HubList is memoized on prop identity, so its callbacks keep a stable identity.
   const { setEditing } = features;
   const editHubFeature = useCallback((recordId: string, featureIndex: number, feature: BioFeature) => setEditing({ recordId, featureIndex, feature }), [setEditing]);
-  const handleRemoveRecord = createRecordRemoval({ records, setRecords, isLocked: remoteAlignment.isLocked, hubState, nav, search, details, addLog });
+  const handleRemoveRecord = createRecordRemoval({ records, setRecords, isLocked: isWorkspaceLocked, hubState, nav, search, details, addLog });
   const derived = useComparisonView(records, view, search.isProteinSession);
   const envAccent = resolveEnvAccent(nav.activeTab, derived.sessionMoleculeType);
   useUnsavedWorkPrompt(records.length);
   return {
     logs, addLog, view, nav, hubState, bio, remoteAlignment, features, search, files, details, derived,
-    envAccent, themeStyle: envAccentVars(envAccent) as React.CSSProperties,
+    busy, isWorkspaceLocked, envAccent, themeStyle: envAccentVars(envAccent) as React.CSSProperties,
     handleClearSearch, handleRemoveRecord, editHubFeature,
-    handleClearAll: workspaceClearer(records, remoteAlignment.isLocked, resetHubWorkspace, bio, addLog),
+    handleClearAll: workspaceClearer(records, isWorkspaceLocked, resetHubWorkspace, bio, addLog),
   };
 }
 

@@ -48,7 +48,7 @@ const App: React.FC = () => {
           <Sidebar {...sidebarProps(w)} />
           <WorkbenchMain w={w} />
         </div>
-        <StatusBar sessionMoleculeType={w.derived.sessionMoleculeType} />
+        <StatusBar sessionMoleculeType={w.derived.sessionMoleculeType} importNotes={w.bio.importNotes} onClearImportNotes={w.bio.clearImportNotes} />
         <TooltipLayer />
       </div>
     </TrackTooltipProvider>

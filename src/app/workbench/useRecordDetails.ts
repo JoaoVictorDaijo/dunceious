@@ -18,7 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 import { featureIndexOf as resolveFeatureIndex } from '@/src/app/logic/featureIndex';
 import { withoutSearchHit } from '@/src/domain/bio/searchHit';
@@ -34,12 +34,14 @@ type BasesMode = boolean | 'nothing' | 'record' | 'query';
 export function useRecordDetails(records: SeqRecord[], transposedRecords: SeqRecord[], setRecords: Dispatch<SetStateAction<SeqRecord[]>>) {
   const [viewingRecordDetails, setViewingRecordDetails] = useState<SeqRecord | null>(null);
   const [viewingFeatureDetails, setViewingFeatureDetails] = useState<BioFeature | null>(null);
+  const detailsInvoker = useRef<HTMLElement | null>(null);
   const [viewingFeatureIndex, setViewingFeatureIndex] = useState(-1);
 
   const handleViewDetails = useCallback((recordId: string, feature?: BioFeature) => {
     const record = records.find(r => r.id === recordId);
     if (!record) return;
     const index = feature ? resolveFeatureIndex(records, transposedRecords, recordId, feature) : -1;
+    detailsInvoker.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setViewingRecordDetails(record);
     setViewingFeatureDetails(record.features[index] ?? null);
     setViewingFeatureIndex(index);
@@ -55,7 +57,7 @@ export function useRecordDetails(records: SeqRecord[], transposedRecords: SeqRec
   const closeDetails = () => { setViewingRecordDetails(null); setViewingFeatureDetails(null); };
 
   return {
-    viewingRecordDetails, viewingFeatureDetails, viewingFeatureIndex, handleViewDetails, closeDetails,
+    viewingRecordDetails, viewingFeatureDetails, viewingFeatureIndex, detailsInvoker, handleViewDetails, closeDetails,
     handleSetShowBases: (show: BasesMode) => updateViewedFeature(f => withAnnotationBases(f, show)),
     removeSearchDetails: () => updateViewedFeature(withoutSearchHit),
   };

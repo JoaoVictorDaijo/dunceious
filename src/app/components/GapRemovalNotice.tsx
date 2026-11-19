@@ -26,10 +26,11 @@ export const NCBI_FASTA_GUIDANCE = 'https://www.ncbi.nlm.nih.gov/genbank/fastafo
 export interface GapRemovalNoticeProps {
   notices: GapNotice[];
   onClose: () => void;
+  onLoad: () => void;
 }
 
-/** Tells the user which records loaded as sequences lost '-' gap characters. */
-const GapRemovalNotice: React.FC<GapRemovalNoticeProps> = ({ notices, onClose }) => {
+/** Consent precedes any mutation of sequence positions. */
+const GapRemovalNotice: React.FC<GapRemovalNoticeProps> = ({ notices, onClose, onLoad }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
   const dismissRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -50,7 +51,7 @@ const GapRemovalNotice: React.FC<GapRemovalNoticeProps> = ({ notices, onClose })
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs motion-safe:animate-in motion-safe:fade-in">
+    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs motion-safe:animate-in motion-safe:fade-in">
       <div ref={dialogRef} role="alertdialog" aria-modal="true" aria-labelledby="gap-notice-title" aria-describedby="gap-notice-rule"
         onKeyDown={handleKeyDown}
         className="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden border border-amber-500/30">
@@ -58,15 +59,15 @@ const GapRemovalNotice: React.FC<GapRemovalNoticeProps> = ({ notices, onClose })
           <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
             <i aria-hidden="true" className="fas fa-triangle-exclamation text-lg"></i>
           </div>
-          <h2 id="gap-notice-title" className="text-lg font-bold uppercase tracking-tight text-white">Alignment gaps removed</h2>
+          <h2 id="gap-notice-title" className="text-lg font-bold uppercase tracking-tight text-white">Remove alignment gaps?</h2>
         </div>
 
         <div className="px-8 py-6 stack-y-4 overflow-y-auto text-sm">
           <p id="gap-notice-rule" className="text-slate-300">
-            Gap characters (-) were removed from the loaded sequences. Positions refer to the ungapped
-            sequence (<a href={NCBI_FASTA_GUIDANCE} target="_blank" rel="noreferrer" className="text-amber-300 underline">NCBI FASTA guidance</a>).
+            {notices[0]?.fileName} contains gap characters. Loaded as sequences, gaps are removed and positions refer to the ungapped sequence (<a href={NCBI_FASTA_GUIDANCE} target="_blank" rel="noreferrer" className="text-amber-300 underline">NCBI FASTA guidance</a>).
           </p>
-          {notices.map(notice => (
+          <p>1 of {notices.length}</p>
+          {notices.slice(0, 1).map(notice => (
             <section key={notice.fileName} aria-label={notice.fileName}>
               <h3 className="font-bold text-slate-100 break-all">{notice.fileName}</h3>
               <ul className="mt-1 stack-y-0.5 text-slate-300">
@@ -79,13 +80,14 @@ const GapRemovalNotice: React.FC<GapRemovalNoticeProps> = ({ notices, onClose })
               </ul>
             </section>
           ))}
-          <p className="text-xs text-slate-400">Gaps are shown only in an alignment. To view them, import this file as an alignment.</p>
+          <p className="text-xs text-slate-400">Gaps are shown only in an alignment. To keep the alignment, load it as a pre-aligned FASTA instead.</p>
         </div>
 
         <div className="bg-slate-800/50 px-8 py-4 border-t border-slate-700/50 flex justify-end">
-          <button ref={dismissRef} onClick={onClose}
+          <button onClick={onClose} className="px-6 py-2">Don't load</button>
+          <button ref={dismissRef} onClick={onLoad}
             className="px-6 py-2 rounded-lg text-sm font-bold uppercase text-white bg-amber-500/20 border border-amber-500/50 hover:bg-amber-500/30 transition-all">
-            Dismiss
+            Load without gaps
           </button>
         </div>
       </div>

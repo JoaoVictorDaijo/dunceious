@@ -18,6 +18,7 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import { describe, it, expect } from 'vitest';
 import { frameShift, segmentFrameshifts } from '../frameshift';
 
@@ -80,5 +81,30 @@ describe('segmentFrameshifts', () => {
     expect(segmentFrameshifts({ strand: 1, segments: [{ start: 0, end: 10 }, { start: 10, end: 30 }] })).toEqual([]);
     expect(segmentFrameshifts({ strand: 1, segments: [{ start: 0, end: 10 }] })).toEqual([]);
     expect(segmentFrameshifts({ strand: 1 })).toEqual([]);
+  });
+});
+
+// INSDC FT 11.4 /ribosomal_slippage: slippage is written with join; order() implies nothing about
+// joining its elements (§3.4.2.2), so its gaps are never frameshifts. Location from the
+// SARS-CoV-2 orf1ab polyprotein (YP_009724389.1) Site features.
+describe('segmentFrameshifts – order()', () => {
+  const segments = [{ start: 147, end: 152 }, { start: 153, end: 161 }, { start: 172, end: 175 }];
+  it('reads no junctions in an order() location, with or without its text', () => {
+    expect(segmentFrameshifts({ strand: 1, segments, operator: 'order' })).toEqual([]);
+    expect(segmentFrameshifts({ strand: 1, segments, locationString: 'order(148..152,154..161,173..175)' })).toEqual([]);
+  });
+
+  it('still reads the same gaps under join', () => {
+    expect(segmentFrameshifts({ strand: 1, segments, operator: 'join' })).toEqual([{ position: 153, shift: 1 }]);
+  });
+});
+
+// #241: complement(join(complement(1..6),6..12)) shares base 6, a −1 junction in written order. It
+// must survive an edit that clears the location text.
+describe('segmentFrameshifts – nested written order without text', () => {
+  it('keeps the −1 junction of a nested feature from its written order', () => {
+    const parsed = parseLocation('complement(join(complement(1..6),6..12))');
+    expect(segmentFrameshifts({ strand: parsed.strand, segments: parsed.segments, operator: parsed.operator,
+      writtenOrder: parsed.writtenOrder })).toEqual([{ position: 5, shift: -1 }]);
   });
 });

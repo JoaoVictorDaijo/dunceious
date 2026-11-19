@@ -49,11 +49,11 @@ export function metadataFromRows(
 ): Record<string, string> {
   const metadata: Record<string, string> = {};
   for (const [key, value] of Object.entries(previous ?? {})) {
-    if (isInternalKey(key)) metadata[key] = value;
+    if (isInternalKey(key) || ['translation', 'phase'].includes(key)) metadata[key] = value;
   }
   for (const row of rows) {
     const key = normalizeQualifierKey(row.key);
-    if (key && !isInternalKey(key)) metadata[key] = row.value;
+    if (key && !['translation', 'phase', 'transl_except'].includes(key) && !isInternalKey(key)) metadata[key] = row.value;
   }
   return metadata;
 }
@@ -67,5 +67,6 @@ export function qualifierIssue(row: QualifierRow, rows: QualifierRow[]): Qualifi
   if (isInternalKey(key)) return 'internal';
   if (!/^[A-Za-z0-9_\-'*]+$/.test(key)) return 'invalid';
   const later = rows.slice(rows.indexOf(row) + 1);
+  if (key === 'transl_except') return null;
   return later.some(r => normalizeQualifierKey(r.key) === key) ? 'duplicate' : null;
 }

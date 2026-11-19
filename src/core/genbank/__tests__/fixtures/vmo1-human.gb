@@ -1,0 +1,231 @@
+LOCUS       VMO1_HUMAN               202 aa            linear   PRI 04-NOV-2026
+DEFINITION  RecName: Full=Vitelline membrane outer layer protein 1 homolog;
+            Flags: Precursor.
+ACCESSION   Q7Z5L0
+VERSION     Q7Z5L0.1
+DBSOURCE    UniProtKB: locus VMO1_HUMAN, accession Q7Z5L0;
+            class: standard.
+            extra accessions:C9JQ15,E9PAU9,E9PGP4,Q3SXP1,Q8IUY1
+            created: Mar 1, 2005.
+            sequence updated: Oct 1, 2003.
+            annotation updated: Nov 4, 2026.
+            xrefs: AF521892.1, AAP80865.1, BE669879.1, AY359099.1, AAQ89457.1,
+            CD367473.1, AC233723.2, BC038467.1, AAH38467.1, BC104195.1,
+            AAI04196.1, NP_001138411.1, NP_001138412.1, NP_001138413.1,
+            NP_872372.1
+            xrefs (non-sequence databases): CCDS:CCDS11055.1, CCDS:CCDS45585.1,
+            CCDS:CCDS45586.1, CCDS:CCDS45587.1, AlphaFoldDB:Q7Z5L0, SMR:Q7Z5L0,
+            FunCoup:Q7Z5L0, IntAct:Q7Z5L0, STRING:9606.ENSP00000328397,
+            GlyGen:Q7Z5L0, iPTMnet:Q7Z5L0, PhosphoSitePlus:Q7Z5L0,
+            BioMuta:VMO1, DMDM:60390935, MassIVE:Q7Z5L0,
+            PaxDb:9606-ENSP00000328397, PeptideAtlas:Q7Z5L0,
+            ProteomicsDB:11185, ProteomicsDB:19084, ProteomicsDB:20361,
+            ProteomicsDB:69315, Antibodypedia:51551, DNASU:284013,
+            Ensembl:ENST00000328739.6, Ensembl:ENSP00000328397.5,
+            Ensembl:ENSG00000182853.12, Ensembl:ENST00000354194.4,
+            Ensembl:ENSP00000346133.4, Ensembl:ENST00000416307.6,
+            Ensembl:ENSP00000390450.2, Ensembl:ENST00000441199.2,
+            Ensembl:ENSP00000408166.2, GeneID:284013, KEGG:hsa:284013,
+            MANE-Select:ENST00000328739.6, UCSC:uc002fyx.4, AGR:HGNC:30387,
+            ClinPGx:PA142670619, CTD:284013, DisGeNET:284013, GeneCards:VMO1,
+            HGNC:30387, HPA:ENSG00000182853, MIM:621110,
+            OpenTargets:ENSG00000182853, VEuPathDB:HostDB:ENSG00000182853,
+            eggNOG:ENOG502S05N, GeneTree:ENSGT00390000009313,
+            HOGENOM:CLU_2269772_0_0_1, InParanoid:Q7Z5L0, OMA:ACFGHAQ,
+            OrthoDB:6344411at2759, PAN-GO:Q7Z5L0, PhylomeDB:Q7Z5L0,
+            PathwayCommons:Q7Z5L0, Agora:ENSG00000182853, BioGRID-ORCS:284013,
+            GenomeRNAi:284013, Pharos:Q7Z5L0, PRO:PR:Q7Z5L0,
+            Proteomes:UP000005640, RNAct:Q7Z5L0, Bgee:ENSG00000182853,
+            GO:0070062, GO:0005576, CDD:cd00220, FunFam:2.100.10.20:FF:000001,
+            Gene3D:2.100.10.20, InterPro:IPR005515, InterPro:IPR036706,
+            PANTHER:PTHR18841:SF2, PANTHER:PTHR18841, Pfam:PF03762,
+            SUPFAM:SSF51092
+KEYWORDS    Alternative splicing; Direct protein sequencing; Disulfide bond;
+            Proteomics identification; Reference proteome; Secreted; Signal.
+SOURCE      Homo sapiens (human)
+  ORGANISM  Homo sapiens
+            Eukaryota; Metazoa; Chordata; Craniata; Vertebrata; Euteleostomi;
+            Mammalia; Eutheria; Euarchontoglires; Primates; Haplorrhini;
+            Catarrhini; Hominidae; Homo.
+REFERENCE   1  (residues 1 to 202)
+  AUTHORS   Ding,P., Han,W., Ying,W., Liu,Y., Wang,L., Qiu,X. and Ma,D.
+  TITLE     Direct Submission
+  JOURNAL   Submitted (??-JUN-2002) to the EMBL/GenBank/DDBJ databases
+  REMARK    NUCLEOTIDE SEQUENCE [MRNA] (ISOFORM 1).
+REFERENCE   2  (residues 1 to 202)
+  CONSRTM   The Cancer Genome Anatomy Project (CGAP) at the National Cancer
+            Institute
+  TITLE     Direct Submission
+  JOURNAL   Submitted (??-SEP-2000) to the EMBL/GenBank/DDBJ databases
+  REMARK    NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA] (ISOFORM 3), AND VARIANT
+            ALA-26.
+REFERENCE   3  (residues 1 to 202)
+  AUTHORS   Clark,H.F., Gurney,A.L., Abaya,E., Baker,K., Baldwin,D., Brush,J.,
+            Chen,J., Chow,B., Chui,C., Crowley,C., Currell,B., Deuel,B.,
+            Dowd,P., Eaton,D., Foster,J., Grimaldi,C., Gu,Q., Hass,P.E.,
+            Heldens,S., Huang,A., Kim,H.S., Klimowski,L., Jin,Y., Johnson,S.,
+            Lee,J., Lewis,L., Liao,D., Mark,M., Robbie,E., Sanchez,C.,
+            Schoenfeld,J., Seshagiri,S., Simmons,L., Singh,J., Smith,V.,
+            Stinson,J., Vagts,A., Vandlen,R., Watanabe,C., Wieand,D., Woods,K.,
+            Xie,M.H., Yansura,D., Yi,S., Yu,G., Yuan,J., Zhang,M., Zhang,Z.,
+            Goddard,A., Wood,W.I., Godowski,P. and Gray,A.
+  TITLE     The secreted protein discovery initiative (SPDI), a large-scale
+            effort to identify novel human secreted and transmembrane proteins:
+            a bioinformatics assessment
+  JOURNAL   Genome Res 13 (10), 2265-2270 (2003)
+   PUBMED   12975309
+  REMARK    NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA] (ISOFORM 1).
+            Erratum:[Genome Res. 2003 Dec;13(12):2759]
+REFERENCE   4  (residues 1 to 202)
+  CONSRTM   The Cancer Genome Anatomy Project (CGAP) at the National Cancer
+            Institute
+  TITLE     Direct Submission
+  JOURNAL   Submitted (??-JUN-2003) to the EMBL/GenBank/DDBJ databases
+  REMARK    NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA] (ISOFORM 4).;
+            TISSUE=Alveolar macrophage
+REFERENCE   5  (residues 1 to 202)
+  AUTHORS   Zody,M.C., Garber,M., Adams,D.J., Sharpe,T., Harrow,J.,
+            Lupski,J.R., Nicholson,C., Searle,S.M., Wilming,L., Young,S.K.,
+            Abouelleil,A., Allen,N.R., Bi,W., Bloom,T., Borowsky,M.L.,
+            Bugalter,B.E., Butler,J., Chang,J.L., Chen,C.K., Cook,A., Corum,B.,
+            Cuomo,C.A., de Jong,P.J., DeCaprio,D., Dewar,K., FitzGerald,M.,
+            Gilbert,J., Gibson,R., Gnerre,S., Goldstein,S., Grafham,D.V.,
+            Grocock,R., Hafez,N., Hagopian,D.S., Hart,E., Norman,C.H.,
+            Humphray,S., Jaffe,D.B., Jones,M., Kamal,M., Khodiyar,V.K.,
+            LaButti,K., Laird,G., Lehoczky,J., Liu,X., Lokyitsang,T.,
+            Loveland,J., Lui,A., Macdonald,P., Major,J.E., Matthews,L.,
+            Mauceli,E., McCarroll,S.A., Mihalev,A.H., Mudge,J., Nguyen,C.,
+            Nicol,R., O'Leary,S.B., Osoegawa,K., Schwartz,D.C., Shaw-Smith,C.,
+            Stankiewicz,P., Steward,C., Swarbreck,D., Venkataraman,V.,
+            Whittaker,C.A., Yang,X., Zimmer,A.R., Bradley,A., Hubbard,T.,
+            Birren,B.W., Rogers,J., Lander,E.S. and Nusbaum,C.
+  TITLE     DNA sequence of human chromosome 17 and analysis of rearrangement
+            in the human lineage
+  JOURNAL   Nature 440 (7087), 1045-1049 (2006)
+   PUBMED   16625196
+  REMARK    NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA].
+REFERENCE   6  (residues 1 to 202)
+  AUTHORS   Gerhard,D.S., Wagner,L., Feingold,E.A., Shenmen,C.M., Grouse,L.H.,
+            Schuler,G., Klein,S.L., Old,S., Rasooly,R., Good,P., Guyer,M.,
+            Peck,A.M., Derge,J.G., Lipman,D., Collins,F.S., Jang,W., Sherry,S.,
+            Feolo,M., Misquitta,L., Lee,E., Rotmistrovsky,K., Greenhut,S.F.,
+            Schaefer,C.F., Buetow,K., Bonner,T.I., Haussler,D., Kent,J.,
+            Kiekhaus,M., Furey,T., Brent,M., Prange,C., Schreiber,K.,
+            Shapiro,N., Bhat,N.K., Hopkins,R.F., Hsie,F., Driscoll,T.,
+            Soares,M.B., Casavant,T.L., Scheetz,T.E., Brown-stein,M.J.,
+            Usdin,T.B., Toshiyuki,S., Carninci,P., Piao,Y., Dudekula,D.B.,
+            Ko,M.S., Kawakami,K., Suzuki,Y., Sugano,S., Gruber,C.E.,
+            Smith,M.R., Simmons,B., Moore,T., Waterman,R., Johnson,S.L.,
+            Ruan,Y., Wei,C.L., Mathavan,S., Gunaratne,P.H., Wu,J., Garcia,A.M.,
+            Hulyk,S.W., Fuh,E., Yuan,Y., Sneed,A., Kowis,C., Hodgson,A.,
+            Muzny,D.M., McPherson,J., Gibbs,R.A., Fahey,J., Helton,E.,
+            Ketteman,M., Madan,A., Rodrigues,S., Sanchez,A., Whiting,M.,
+            Madari,A., Young,A.C., Wetherby,K.D., Granite,S.J., Kwong,P.N.,
+            Brinkley,C.P., Pearson,R.L., Bouffard,G.G., Blakesly,R.W.,
+            Green,E.D., Dickson,M.C., Rodriguez,A.C., Grimwood,J., Schmutz,J.,
+            Myers,R.M., Butterfield,Y.S., Griffith,M., Griffith,O.L.,
+            Krzywinski,M.I., Liao,N., Morin,R., Palmquist,D., Petrescu,A.S.,
+            Skalska,U., Smailus,D.E., Stott,J.M., Schnerch,A., Schein,J.E.,
+            Jones,S.J., Holt,R.A., Baross,A., Marra,M.A., Clifton,S.,
+            Makowski,K.A., Bosak,S. and Malek,J.
+  CONSRTM   MGC Project Team
+  TITLE     The status, quality, and expansion of the NIH full-length cDNA
+            project: the Mammalian Gene Collection (MGC)
+  JOURNAL   Genome Res 14 (10B), 2121-2127 (2004)
+   PUBMED   15489334
+  REMARK    NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA] (ISOFORMS 1 AND 2), AND
+            VARIANT ALA-26.;
+            TISSUE=Pancreas
+            Erratum:[Genome Res. 2006 Jun;16(6):804. Morrin, Ryan [corrected to
+            Morin, Ryan]]
+REFERENCE   7  (residues 1 to 202)
+  AUTHORS   Zhang,Z. and Henzel,W.J.
+  TITLE     Signal peptide prediction based on analysis of experimentally
+            verified cleavage sites
+  JOURNAL   Protein Sci 13 (10), 2819-2824 (2004)
+   PUBMED   15340161
+  REMARK    PROTEIN SEQUENCE OF 25-39.
+COMMENT     On or before Mar 13, 2013 this sequence version replaced
+            gi:74728005, gi:121947728.
+            [SUBCELLULAR LOCATION] Secreted {ECO:0000305}.
+            [ALTERNATIVE PRODUCTS] Event=Alternative splicing; Named
+            isoforms=4; Name=1; IsoId=Q7Z5L0-1; Sequence=Displayed; Name=2;
+            IsoId=Q7Z5L0-2; Sequence=VSP_045706, VSP_045707; Name=3;
+            IsoId=Q7Z5L0-3; Sequence=VSP_045708; Name=4; IsoId=Q7Z5L0-4;
+            Sequence=VSP_047219.
+            [SIMILARITY] Belongs to the VMO1 family. {ECO:0000305}.
+FEATURES             Location/Qualifiers
+     source          1..202
+                     /organism="Homo sapiens"
+                     /db_xref="taxon:9606"
+     gene            1..202
+                     /gene="VMO1"
+                     /locus_tag="UNQ6350/PRO21055"
+     Protein         1..202
+                     /product="Vitelline membrane outer layer protein 1
+                     homolog"
+                     /UniProtKB_evidence="Evidence at protein level"
+     Region          1..24
+                     /region_name="Signal"
+                     /note="/evidence=ECO:0000269|PubMed:15340161."
+     Region          25..202
+                     /region_name="Mature chain"
+                     /note="Vitelline membrane outer layer protein 1 homolog.
+                     /id=PRO_0000036407."
+     Region          26
+                     /region_name="Variant"
+                     /note="T -> A (in dbSNP:rs4790706).
+                     /evidence=ECO:0000269|PubMed:15489334, ECO:0000269|Ref.2.
+                     /id=VAR_053736."
+     Region          36..200
+                     /region_name="VOMI"
+                     /note="Vitelline membrane outer layer protein I (VOMI);
+                     pfam03762"
+                     /db_xref="CDD:427492"
+     Site            order(44,67,75..76,128,135..136,181,188..189)
+                     /site_type="other"
+                     /note="putative carbohydrate binding site [chemical
+                     binding]"
+                     /db_xref="CDD:238135"
+     Bond            bond(53,86)
+                     /bond_type="disulfide"
+                     /note="/evidence=ECO:0000250."
+     Region          66..70
+                     /region_name="Splicing variant"
+                     /note="VEPPQ -> LGRME (in isoform 2).
+                     /evidence=ECO:0000303|PubMed:15489334. /id=VSP_045706."
+     Region          71..202
+                     /region_name="Splicing variant"
+                     /note="Missing (in isoform 2).
+                     /evidence=ECO:0000303|PubMed:15489334. /id=VSP_045707."
+     Region          77
+                     /region_name="Variant"
+                     /note="T -> S (in dbSNP:rs2279961). /id=VAR_034584."
+     Region          98..202
+                     /region_name="Splicing variant"
+                     /note="VESQSGSWGEWSEPLWCRGGAYLVAFSLRVEAPTTLGDNTAANNVRFRCSD
+                     GEELQGPGLSWGDFGDWSDHCPKGACGLQTKIQGPRGLGDDTALNDARLFCCRS ->
+                     LGRME (in isoform 3). /evidence=ECO:0000303|Ref.2.
+                     /id=VSP_045708."
+     Region          104..202
+                     /region_name="Splicing variant"
+                     /note="SWGEWSEPLWCRGGAYLVAFSLRVEAPTTLGDNTAANNVRFRCSDGEELQG
+                     PGLSWGDFGDWSDHCPKGACGLQTKIQGPRGLGDDTALNDARLFCCRS ->
+                     RWGAGVEDPLG (in isoform 4). /evidence=ECO:0000303|Ref.4.
+                     /id=VSP_047219."
+     Bond            bond(114,146)
+                     /bond_type="disulfide"
+                     /note="/evidence=ECO:0000250."
+     Bond            bond(169,199)
+                     /bond_type="disulfide"
+                     /note="/evidence=ECO:0000250."
+     Bond            bond(174,200)
+                     /bond_type="disulfide"
+                     /note="/evidence=ECO:0000250."
+ORIGIN
+        1 mergagakll plllllratg ftcaqtdgrn gytavievts ggpwgdwawp emcpdgffas
+       61 gfslkveppq gipgddtaln girlhcargn vlgnthvves qsgswgewse plwcrggayl
+      121 vafslrveap ttlgdntaan nvrfrcsdge elqgpglswg dfgdwsdhcp kgacglqtki
+      181 qgprglgddt alndarlfcc rs
+//
+

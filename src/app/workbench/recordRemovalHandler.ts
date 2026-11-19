@@ -49,7 +49,7 @@ export interface RecordRemovalDeps {
 }
 
 /** Drops every Hub reference to the record: its rows (`keys`), edits, selection, filter and jump target. */
-function forgetHubRecord(hubState: HubState, recordId: string, keys: Set<string>) {
+function forgetHubRecord(hubState: HubState, nav: Navigation, recordId: string, keys: Set<string>) {
   hubState.setCurrentRow(previous => previous && keys.has(previous) ? null : previous);
   hubState.setSearchKey(previous => previous && keys.has(previous) ? null : previous);
   hubState.setEditingDetails(previous => previous === recordId ? null : previous);
@@ -63,6 +63,7 @@ function forgetHubRecord(hubState: HubState, recordId: string, keys: Set<string>
     const onlyIds = new Set([...prev.onlyIds].filter(id => id !== recordId));
     return { ...prev, onlyIds: onlyIds.size ? onlyIds : undefined };
   });
+  if (nav.hubFocus && keys.has(nav.hubFocus.key)) { nav.setHubFocus(null); nav.setShowHubReturn(false); }
   if (hubState.jumpTarget && (hubState.jumpTarget.key === recordId || keys.has(hubState.jumpTarget.key))) hubState.setJumpTarget(null);
 }
 
@@ -75,8 +76,7 @@ export function createRecordRemoval({ records, setRecords, isLocked, hubState, n
 
     const keys = new Set(record.features.map((_, index) => `${recordId}:${index}`));
     record.tracks?.forEach(track => keys.add(`${recordId}:track:${track.id}`));
-    if (nav.hubFocus && keys.has(nav.hubFocus.key)) { nav.setHubFocus(null); nav.setShowHubReturn(false); }
-    forgetHubRecord(hubState, recordId, keys);
+    forgetHubRecord(hubState, nav, recordId, keys);
     setRecords(prev => removeRecordFromProject(prev, recordId));
     nav.setActiveSelection(prev => updateSelectionAfterRecordRemoval(prev, recordId));
 

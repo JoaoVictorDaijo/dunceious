@@ -98,9 +98,10 @@ export function annotationBarPath(x: number, y: number, w: number, h: number, st
  */
 export function terminalSegmentIndex(feature: Pick<BioFeature, 'segments' | 'strand' | 'metadata'>): number {
   const segments = feature.segments ?? [];
-  if (segments.length === 0) return -1;
+  const drawable = segments.map((segment, index) => ({ segment, index })).filter(({ segment }) => segment.start !== segment.end);
+  if (drawable.length === 0) return -1;
   const perSegment = segments.some(segment => segment.strand !== undefined);
-  return !perSegment && getFeatureStrand(feature as BioFeature) === -1 ? 0 : segments.length - 1;
+  return (!perSegment && getFeatureStrand(feature as BioFeature) === -1 ? drawable[0] : drawable[drawable.length - 1]).index;
 }
 
 const queryLayerCache = new WeakMap<BioFeature, { sequence: string; alphabet: string; value: HitMarks | null }>();

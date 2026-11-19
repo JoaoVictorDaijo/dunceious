@@ -18,88 +18,105 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { BioWorkerRequest } from '@/src/workers/protocol';
+import { MixedFastaError } from '@/src/app/logic/bioResponse';
 import { takeFiles, postToWorker, dispatchFile, type WorkerUploadDeps } from '@/src/app/logic/upload';
-import { categoryLabel, previewMismatch } from '@/src/app/logic/sessionPreview';
 import type { FileHandlerContext } from './context';
 
 type InputEvent = React.ChangeEvent<HTMLInputElement>;
 
-/**
- * Shared plumbing: read a file, dispatch to the worker, and always settle the processing flag
- * on failure (unreadable file, absent worker) so the ProcessingOverlay can never hang. See logic/upload.ts.
- */
-function workerDeps(ctx: FileHandlerContext): WorkerUploadDeps {
-  return {
+/** Reads may finish in any order; wait for each commit or gap decision in selection order. */
+async function importSelection(ctx: FileHandlerContext, workerDeps: WorkerUploadDeps, files: File[], revision: number) {
+  const { addLog, getWorkspaceRevision, isAlignmentLocked, dropImport, setters: { setIsProcessing } } = ctx;
+  const reads = files.map(async file => {
+    try { return { file, content: await workerDeps.readText(file) }; }
+    catch (error) { return { file, error }; }
+  });
+
+  for (const read of reads) {
+    const result = await read;
+    const { file } = result;
+    if ('error' in result) {
+      addLog(`Could not read "${file.name}": ${result.error instanceof Error ? result.error.message : String(result.error)}`);
+      continue;
+    }
+    if (getWorkspaceRevision() !== revision) {
+      addLog(`${file.name} was not loaded: the workspace was replaced`);
+      continue;
+    }
+    if (isAlignmentLocked()) {
+      addLog(`${file.name} was not loaded: the workspace is locked`);
+      continue;
+    }
+    const { content } = result;
+    try {
+      if (!dropImport) throw new Error('The processing worker is unavailable.');
+      setIsProcessing(true);
+      await dropImport.requestBio({
+        type: content.trimStart().startsWith('>') ? 'PARSE_FASTA' : 'PARSE_GENBANK',
+        filename: file.name, content, workspaceRevision: revision,
+      });
+    } catch (error) {
+      if (!(error instanceof MixedFastaError) && getWorkspaceRevision() === revision) {
+        addLog(`Cannot process "${file.name}": ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+  setIsProcessing(false);
+}
+
+export function createPickerHandlers(ctx: FileHandlerContext) {
+  const { addLog, isAlignmentLocked, getWorkspaceRevision, records, setters: { setIsProcessing } } = ctx;
+  const workerDeps: WorkerUploadDeps = {
     readText: ctx.readText,
     postToWorker: request => postToWorker(ctx.bioWorkerRef.current, request),
-    setProcessing: ctx.setters.setIsProcessing,
-    addLog: ctx.addLog,
+    setProcessing: setIsProcessing,
+    addLog,
   };
-}
-
-/** Refuses a sampled file of the other category before dispatch; returns true when refused. */
-function refusedByPreview(ctx: FileHandlerContext, fileName: string, content: string, isFasta: boolean, noun: string, verb: string): boolean {
-  const mismatch = previewMismatch(ctx.records, content, isFasta);
-  if (!mismatch) return false;
-  ctx.reportMismatch({ ...mismatch, fileName });
-  ctx.addLog(`Cannot ${verb} ${categoryLabel(mismatch.incoming)} ${noun} "${fileName}": session contains ${categoryLabel(mismatch.loaded)} sequences.`);
-  ctx.setters.setIsProcessing(false);
-  return true;
-}
-
-function sequenceRequest(ctx: FileHandlerContext, file: File) {
-  return (content: string): BioWorkerRequest | null => {
-    if (ctx.isAlignmentLocked()) { ctx.setters.setIsProcessing(false); return null; }
-    const isFasta = content.trimStart().startsWith('>');
-    if (refusedByPreview(ctx, file.name, content, isFasta, 'file', 'load')) return null;
-    return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content } : { type: 'PARSE_GENBANK', filename: file.name, content };
-  };
-}
-
-/** The sequence, alignment and annotation file-picker handlers. */
-export function createPickerHandlers(ctx: FileHandlerContext) {
-  const { addLog, isAlignmentLocked, setters: { setIsProcessing } } = ctx;
-  const deps = workerDeps(ctx);
 
   const handleFileUpload = (e: InputEvent) => {
     if (isAlignmentLocked()) return;
     const files = takeFiles(e.target);
     if (files.length === 0) return;
     setIsProcessing(true);
+    const revision = getWorkspaceRevision();
     addLog(`Ingesting batch: ${files.length} file(s).`);
-    // Dispatch in selection order: the worker answers in order, so the first file sets an
-    // empty workspace's molecule type whichever read finishes first.
-    void (async () => {
-      for (const file of files) {
-        try { await dispatchFile(file, sequenceRequest(ctx, file), deps); }
-        catch (error) {
-          addLog(`Cannot process "${file.name}": ${error instanceof Error ? error.message : String(error)}`);
-          setIsProcessing(false);
-        }
-      }
-    })();
+    void importSelection(ctx, workerDeps, files, revision);
   };
 
   const handleAlignmentUpload = (e: InputEvent) => {
     if (isAlignmentLocked()) return;
     const [file] = takeFiles(e.target);
-    if (!file || ctx.records.length === 0) return;
+    if (!file) return;
+    const revision = getWorkspaceRevision();
     setIsProcessing(true);
     addLog(`Importing external alignment: ${file.name}`);
     dispatchFile(file, content => {
       if (isAlignmentLocked()) { setIsProcessing(false); return null; }
-      if (refusedByPreview(ctx, file.name, content, true, 'alignment', 'import')) return null;
-      return { type: 'PARSE_FASTA', filename: file.name, content, asAlignment: true };
-    }, deps);
+      if (getWorkspaceRevision() !== revision) { addLog(`${file.name} was not loaded: the workspace was replaced`); setIsProcessing(false); return null; }
+      return { type: 'PARSE_FASTA', filename: file.name, content, asAlignment: true, workspaceRevision: revision };
+    }, workerDeps);
   };
 
   const handleAnnotationUpload = (e: InputEvent) => {
+    if (isAlignmentLocked()) return;
     const files = takeFiles(e.target);
-    if (files.length === 0 || ctx.records.length === 0) return;
+    if (files.length === 0 || records.length === 0) return;
     setIsProcessing(true);
     addLog(`Importing annotations from ${files.length} files...`);
-    files.forEach(file => dispatchFile(file, content => ({ type: 'PARSE_ANNOTATIONS', filename: file.name, content }), deps));
+    files.forEach(file =>
+      dispatchFile(
+        file,
+        content => {
+          if (isAlignmentLocked()) {
+            addLog(`${file.name} was not loaded: the workspace is locked`);
+            setIsProcessing(false);
+            return null;
+          }
+          return { type: 'PARSE_ANNOTATIONS', filename: file.name, content };
+        },
+        workerDeps,
+      ),
+    );
   };
 
   return { handleFileUpload, handleAlignmentUpload, handleAnnotationUpload };

@@ -21,7 +21,7 @@
 import type { MutableRefObject } from 'react';
 import type { BatchIdMap, BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
 import { routeDroppedFiles, importDroppedBatch, type DropBatchDeps } from '@/src/app/logic/dropRouting';
-import { previewMismatch } from '@/src/app/logic/sessionPreview';
+import { MixedFastaError } from '@/src/app/logic/bioResponse';
 import type { FileHandlerContext } from './context';
 
 /**
@@ -29,38 +29,40 @@ import type { FileHandlerContext } from './context';
  * workspace (the revision moves), or while an alignment holds the lock.
  */
 function batchRequester(ctx: FileHandlerContext) {
-  const getRevision = () => ctx.dropImport?.getWorkspaceRevision?.() ?? ctx.workspaceRevision.current;
-  const revision = getRevision();
-  const shouldCommit = () => getRevision() === revision;
+  const revision = ctx.getWorkspaceRevision();
+  const shouldCommit = () => ctx.getWorkspaceRevision() === revision;
   const checkWorkspace = () => {
     if (!shouldCommit()) throw new Error('Drop cancelled: the workspace was replaced');
   };
   const request = async (message: BioWorkerRequest): Promise<BioWorkerResponse> => {
     checkWorkspace();
-    if (ctx.isAlignmentLocked()) throw new Error('Import stopped: alignment is locked.');
+    if (message.type === 'PARSE_ANNOTATIONS' && ctx.isAlignmentLocked()) {
+      ctx.addLog(`${message.filename} was not loaded: the workspace is locked`);
+      return { type: 'ANNOTATIONS_SUCCESS', annotations: {}, details: {}, idMap: message.idMap };
+    }
     if (!ctx.dropImport) throw new Error('The processing worker is unavailable.');
     const response = await ctx.dropImport.requestBio(message, shouldCommit);
     if (response === 'stale') throw new Error('Drop cancelled: the workspace was replaced');
     checkWorkspace();
     return response;
   };
-  return { request, checkWorkspace };
+  return { request, checkWorkspace, revision };
 }
 
-function batchDeps(ctx: FileHandlerContext): DropBatchDeps<File> {
-  const { request, checkWorkspace } = batchRequester(ctx);
+function batchDeps(ctx: FileHandlerContext, { request, checkWorkspace, revision }: ReturnType<typeof batchRequester>): DropBatchDeps<File> {
   const importSequence = async (file: File, content: string): Promise<BatchIdMap> => {
     checkWorkspace();
     const isFasta = ['fa', 'fasta'].includes(file.name.split('.').pop()!.toLowerCase());
-    const mismatch = previewMismatch(ctx.getRecords(), content, isFasta);
-    if (mismatch) {
-      ctx.reportMismatch({ ...mismatch, fileName: file.name });
-      throw new Error(`Cannot load "${file.name}": molecule type differs from the session.`);
+    try {
+      const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: undefined, ...(isFasta ? { asAlignment: false } : {}) });
+      if (response.type !== 'PARSE_SUCCESS' && response.type !== 'PARSE_REFUSED' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
+      if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
+      return response.idMap;
+    } catch (error) {
+      if (!(error instanceof MixedFastaError)) throw error;
+      checkWorkspace();
+      return error.idMap;
     }
-    const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, ...(isFasta ? { asAlignment: false } : {}) });
-    if (response.type !== 'PARSE_SUCCESS' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
-    if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
-    return response.idMap;
   };
   const importAnnotations = async (file: File, content: string, idMap: BatchIdMap) => {
     const response = await request({ type: 'PARSE_ANNOTATIONS', filename: file.name, content, idMap });
@@ -88,9 +90,9 @@ export function createDropHandler(ctx: FileHandlerContext, dropQueue: MutableRef
         if (window.confirm('Load this project and replace the workspace?')) await loadProjectFile(route.file);
         return;
       }
-      const deps = batchDeps(ctx);
+      const batch = batchRequester(ctx);
       setIsProcessing(true);
-      try { await importDroppedBatch<File>(route, deps); }
+      try { await importDroppedBatch<File>(route, batchDeps(ctx, batch)); }
       catch (error) { addLog(error instanceof Error ? error.message : String(error)); }
       finally { setIsProcessing(false); }
     };

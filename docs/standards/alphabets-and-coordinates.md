@@ -28,9 +28,9 @@ half-open by design; it is a library, not an interface.
 
 **Dunceious.** Deviates — [#231](https://github.com/JoaoVictorDaijo/dunceious/issues/231).
 The details window shows the 1-based location
-(`src/app/components/RecordDetailsModal.tsx:207`). The feature editor shows the internal
+(`src/app/components/RecordDetailsModal.tsx:231`). The feature editor shows the internal
 0-based start and exclusive end under "Start (bp)" / "End (bp)"
-(`src/app/components/FeatureEditorModal.tsx:219, 232, 263, 274`): a feature at `1..10` shows Start 0.
+(`src/app/components/FeatureEditorModal.tsx:239, 252, 298, 309`): a feature at `1..10` shows Start 0.
 Other viewer selection-space discrepancies are tracked in
 [#248](https://github.com/JoaoVictorDaijo/dunceious/issues/248); [OP-4](operations.md#op-4-residues-alignment-columns-and-boundaries)
 separates alignment-column conversion from the numbering convention.
@@ -50,7 +50,7 @@ IUPAC ambiguity handling, each for different operations (see [Tools](tools.md)).
 symbol, matching it in search and complementing it are separate behaviours.
 
 **Dunceious.** Conforms for query degeneracy (`src/core/search/query.ts`) and the U-aware
-complement (`src/domain/bio/sequence.ts:43`). The code does not yet cite NC-IUB; cite `ALPHA-1`.
+complement (`src/domain/bio/sequence.ts:43`). `isGenBankResidue` in `src/domain/bio/genbankValidation.ts` shares the INSDC nucleotide alphabet between import validation and writer eligibility; it rejects punctuation, gaps and stops without repairing sequence coordinates.
 
 ## ALPHA-2. Amino-acid codes
 
@@ -65,6 +65,7 @@ The UCSC Table Browser writes stops as `Z` in CDS alignment output
 reading `Z` as Glx; treat such output as tool-specific.
 
 **Dunceious.** Accepts all six in protein preflight (`src/core/alignment/preflight.ts:60`).
+`isGenBankResidue` also accepts these six codes for protein GenBank records and refuses `*`.
 Search expands B, Z, J and X (`src/core/search/query.ts:27`). Local scoring uses EMBOSS
 EBLOSUM62, which has no U, O or J, and rejects them (`src/core/search/local/scoring.ts:65`);
 that rejection must stay visible to the user.

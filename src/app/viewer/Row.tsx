@@ -18,23 +18,29 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import { pickTrackData, trackPosition, unplacedSummary } from '@/src/domain/bio/quantitativeTracks';
 import type { CompletedSearch } from '@/src/app/logic/searchState';
 import * as d3 from 'd3';
-import React, { memo, useMemo } from 'react';
+import React, { memo, useLayoutEffect, useMemo, useState } from 'react';
 import type { ListChildComponentProps } from 'react-window';
 import type { BioFeature, FeatureSegment, SearchResult, SelectionArea } from '@/src/domain/bio/types';
 import { isFocusedSelection, type FocusTarget } from '@/src/app/logic/focusTarget';
+import { remoteIntervalsText } from '@/src/app/logic/viewModel';
 import type { ActiveComparison } from '@/src/app/logic/alignmentComparison';
 import { getFeatureColor } from '@/src/app/viewer/colors';
 import { AnnotationText } from './AnnotationText';
 import { annotationBarPath, annotationDirection, frameshiftLabel, frameshiftSummary, showsAnnotationBases, terminalSegmentIndex } from './annotationPresentation';
-import { segmentFrameshifts } from '@/src/domain/bio';
+import { isBetweenBasesSite, isJoinedLocation, isOrderLocation, segmentFrameshifts } from '@/src/domain/bio';
+import { displayLocation } from '@/src/app/logic/displayLocation';
 import { getFeatureStrand } from '@/src/domain/bio/strand';
 import { writtenOrderSegments } from '@/src/domain/bio/featureEnvelope';
-import { alignedToOriginalPositions, complementAlphabet, getOriginalPos } from '@/src/domain/bio/sequence';
+import { alignedToOriginalPositions, complementAlphabet, extractCodingSequence } from '@/src/domain/bio/sequence';
+import { invalidateTooltips } from '@/src/app/components/TooltipLayer';
+import { isCds, checkedTranslation } from '@/src/domain/bio/translation';
+import { translationSummary } from './translationPresentation';
 import { computeBrokenFeatureMap, geneticCodeWarning } from './cds';
 import { ANNOT_BAR_HEIGHT, ANNOT_BASES_HEIGHT, NT_ROW_HEIGHT, AA_ROW_HEIGHT } from './constants';
-import type { RecordLayout, TrackLayout, FeaturePlacement, TrackDatum } from './layout';
+import type { RecordLayout, TrackLayout, FeaturePlacement } from './layout';
 import { SEARCH_QUERY_LANE_HEIGHT } from './hitMarks';
 import { SequenceTrack } from './tracks/SequenceTrack';
 import { QuantitativeTrack, TRACK_COLORS } from './tracks/QuantitativeTrack';
@@ -66,6 +72,7 @@ export interface RowData {
   conservationScores: number[];
   quantValueRanges: Record<string, { min: number, max: number }>;
   showTracks: boolean;
+  addLog?: (message: string) => void;
   /** 0..1: how far opted-in annotation bars have opened to show their bases. */
   basesOpenness: number;
   /** The focused annotation, while the selection is still exactly that region. */
@@ -74,6 +81,7 @@ export interface RowData {
   comparison: ActiveComparison | null;
 }
 
+const NO_HIGHLIGHTED_INTERVALS: number[] = [];
 const SELECTION_FILL = '#38bdf8';
 const SELECTION_EDGE = '#0ea5e9';
 /** Where the "Annotations" heading ends; a focus label starting before it takes the heading's place. */
@@ -91,8 +99,15 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   } = data;
 
   const l = recordLayouts[index];
+  useLayoutEffect(() => {
+    invalidateTooltips(); setTooltip(null);
+    return () => { invalidateTooltips(); setTooltip(null); };
+  }, [l.record, l.seqBaseY, l.height, scrollX, zoomLevel, viewportWidth, showTranslation, showAnnotations, setTooltip]);
+  const unalignedInMixed = !l.record.alignedSequence && recordLayouts.some(layout => layout.record.alignedSequence !== undefined);
+  const unit = recordLayouts.some(layout => layout.record.moleculeType === 'protein') ? 'aa' : 'bp';
   const chartWidth = alignmentLength * zoomLevel;
-  const xScale = d3.scaleLinear().domain([0, alignmentLength]).range([0, chartWidth]);
+  const xScale = useMemo(() => d3.scaleLinear().domain([0, alignmentLength]).range([0, chartWidth]),
+    [alignmentLength, chartWidth]);
   
   const vStart = Math.max(0, Math.floor(scrollX / zoomLevel) - 30);
   const vEnd = Math.min(alignmentLength, Math.ceil((scrollX + viewportWidth) / zoomLevel) + 30);
@@ -111,6 +126,14 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
   // Only aligned rows share the reference's columns; an unaligned row is never compared.
   const rowComparison = comparison && !isReference && l.record.alignedSequence ? comparison : null;
   const rowSearchResults = searchResultsByRecord[l.id] || [];
+  const [hoveredTrack, setHoveredTrack] = useState<{ id: string; indices: number[] } | null>(null);
+  const highlightTrackInterval = (id: string, sourceIndex: number | undefined) => {
+    setHoveredTrack(current => {
+      if (sourceIndex === undefined) return null;
+      if (current?.id === id && current.indices[0] === sourceIndex) return current;
+      return { id, indices: [sourceIndex] };
+    });
+  };
   const tracks = l.record.tracks || [];
 
   const effectiveTranslation = l.translationVisible;
@@ -132,8 +155,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
 
   // Pre-compute broken-protein status for each CDS/ORF feature in this record.
   const brokenFeatureMap = useMemo(
-    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType),
-    [l.record.features, seq, l.record.moleculeType],
+    () => computeBrokenFeatureMap(l.record.features, seq, l.record.moleculeType, { isCircular: l.record.isCircular, biologicalLength: l.record.sequence.length }),
+    [l.record.features, seq, l.record.moleculeType, l.record],
   );
 
   return (
@@ -164,7 +187,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               {l.trackLayouts.map((t: TrackLayout) => {
                 const range = quantValueRanges[t.id] || { min: 0, max: 1 };
                 return (
-                  <div key={t.id} className="flex flex-col justify-center items-end" style={{ height: t.height, marginBottom: 12 }}>
+                  <div key={t.id} className="flex flex-col justify-center items-end" data-tip="Value range uses placed, finite intervals only" style={{ height: t.height, marginBottom: 12 }}>
                     <span className="text-[11px] font-bold text-slate-500">{range.max.toFixed(1)}</span>
                     {t.kind === 'interval' ? (
                       <div 
@@ -189,7 +212,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
           <span className="text-[10px] leading-none font-bold uppercase text-emerald-500 tracking-widest">Sequence</span>
         </div>
 
-        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-xs tracking-tight ${motionClass}`} data-tip={l.id} data-state={showTranslation && l.record.moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'} style={{ transform: `translateY(${l.seqBaseY + 2}px)` }}>
+        <div className={`w-full truncate text-right bg-white px-2 py-1.5 rounded-md border border-slate-200 text-[11px] font-bold text-slate-900 shadow-xs tracking-tight ${motionClass}`} data-tip={unalignedInMixed ? "Not in the alignment. Positions are this sequence's own, so its row doesn't line up with the aligned rows." : l.id} data-unaligned={unalignedInMixed || undefined} data-state={showTranslation && l.record.moleculeType !== 'protein' ? 'translation-enabled' : 'translation-disabled'} style={{ transform: `translateY(${l.seqBaseY + 2}px)`, borderStyle: unalignedInMixed ? 'dashed' : undefined }}>
           {isReference && (
             <span data-reference-badge="" data-tip="Reference: every other aligned sequence is compared against this one"
               className="mr-1 rounded-sm px-1 py-px bg-env-strong text-[9px] font-black tracking-wider text-white align-[1px]">REF</span>
@@ -218,7 +241,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
             </div>
           )}
 
+          {unalignedInMixed && <div data-unaligned-end={l.id} data-tip={`${l.id} ends here: ${l.record.sequence.length} ${unit}, not aligned`} className="absolute border-l border-dashed border-slate-500 z-20" style={{ left: xScale(l.record.sequence.length) - scrollX, top: l.seqBaseY, height: NT_ROW_HEIGHT }} />}
           <SequenceTrack 
+            onViewDetails={feature => onViewDetails(l.id, feature)}
             seq={seq}
             record={l.record}
             completedSearch={completedSearch}
@@ -297,8 +322,9 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const openness = showsAnnotationBases(f) ? basesOpenness : 0;
               const expanded = openness > 0;
               const barHeight = ANNOT_BAR_HEIGHT + openness * ANNOT_BASES_HEIGHT;
+              const unjoined = (f.segments?.length ?? 0) > 1 && isOrderLocation(f);
               const place = (node: React.ReactNode) => (
-                <g key={i} className="annot-feature" style={{ transform: `translateY(${laneY}px)` }}>{node}</g>
+                <g key={i} className={unjoined ? 'annot-feature annot-order' : 'annot-feature'} style={{ transform: `translateY(${laneY}px)` }}>{node}</g>
               );
               const isSelected = focusedRegion?.featureIndex !== undefined && isFocusedSelection(focusedRegion, persistentSelection)
                 ? l.id === focusedRegion.recordId && l.record.features[focusedRegion.featureIndex] === f
@@ -319,15 +345,44 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               const tooltipContent = () => [
                 `${f.name} [${f.type}]`,
                 isBroken ? '⚠ Early stop codon (broken protein)' : null,
-                geneticCodeWarning(f),
+                geneticCodeWarning(f)
+                  ? geneticCodeWarning(f,
+                    l.record.moleculeType === 'protein' || typeof getFeatureStrand(f) !== 'number' ? undefined : extractCodingSequence(f, seq, { isCircular: l.record.isCircular, biologicalLength: l.record.sequence.length }).codingSeq,
+                    l.record.moleculeType)
+                  : null,
+                isCds(f) ? translationSummary(f, checkedTranslation(f, l.record)) : null,
                 f.metadata?.value ? `Value: ${f.metadata.value}` : null,
-                `Locus: ${f.locationString || `${getOriginalPos(seq, f.start) + 1}..${getOriginalPos(seq, f.end)}`}`,
+                `Locus: ${displayLocation(f, l.record)}`,
                 annotationDirection(f, l.record.moleculeType),
+                unjoined ? `order(): ${f.segments!.length} intervals, not joined` : null,
+                f.remoteParts?.length ? `${remoteIntervalsText(f.remoteParts)}, not in this record` : null,
+                isBetweenBasesSite(f) ? 'Between-base site: covers no bases' : null,
                 ...frameshiftSummary(biologicalFeature),
                 'Bases: annotated region segments at genomic positions; zoom in to inspect.',
                 f.metadata?.product ? `Product: ${f.metadata.product}` : null,
                 f.metadata?.note ? `Note: ${f.metadata.note}` : null
               ].filter(Boolean).join('\n');
+
+              const interactions = {
+                style: { cursor: 'pointer' },
+                onPointerOver: (ev: React.PointerEvent) => {
+                  if (showsHoverTooltip(ev.pointerType)) setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() });
+                },
+                onPointerOut: () => setTooltip(null),
+                onClick: (ev: React.MouseEvent) => {
+                  ev.stopPropagation();
+                  onViewDetails?.(l.id, f);
+                },
+                onContextMenu: (ev: React.MouseEvent) => {
+                  ev.stopPropagation();
+                  onContextMenu(ev, l.id, f);
+                },
+                onDoubleClick: (ev: React.MouseEvent) => {
+                  ev.stopPropagation();
+                  ev.preventDefault();
+                  onSelectionChange({ start: f.start, end: f.end, recordIds: [l.id] });
+                },
+              };
 
               const partVisible = (s: number, e: number) => {
                 const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
@@ -336,6 +391,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               // The name is painted once, on the first piece in view, so a long join
               // keeps its name on screen without repeating it at every segment.
               const renderPart = (s: number, e: number, keySuffix: string, strand?: 1 | -1, pointed = true, labelled = true) => {
+                if (s === e) return null;
                 const fX = xScale(s) - scrollX, fW = xScale(e) - xScale(s);
                 if (!partVisible(s, e)) return null;
 
@@ -359,24 +415,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                       stroke={isSelected ? '#000' : (isBroken ? '#ef4444' : fill)}
                       strokeWidth={isSelected ? 1.5 : 1}
                       strokeDasharray={isBroken && !isSelected ? '3,2' : undefined}
-                      style={{ cursor: 'pointer' }} opacity={isSelected ? 1 : 0.85}
-                      onPointerOver={(ev) => {
-                        if (showsHoverTooltip(ev.pointerType)) setTooltip({ x: ev.pageX, y: ev.pageY, content: tooltipContent() });
-                      }}
-                      onPointerOut={() => setTooltip(null)}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        onViewDetails?.(l.id, f);
-                      }}
-                      onContextMenu={(ev) => {
-                        ev.stopPropagation();
-                        onContextMenu(ev, l.id, f);
-                      }}
-                      onDoubleClick={(ev) => {
-                        ev.stopPropagation();
-                        ev.preventDefault();
-                        onSelectionChange({ start: f.start, end: f.end, recordIds: [l.id] });
-                      }}
+                      opacity={isSelected ? 1 : 0.85}
+                      {...interactions}
                     />
                     <AnnotationText feature={f} sequence={seq} moleculeType={l.record.moleculeType} alphabet={annotationAlphabet}
                       start={s} end={e} strand={strand} y={y} height={barHeight} zoom={zoomLevel} expanded={expanded} labelled={labelled}
@@ -385,13 +425,32 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                 );
               };
 
+              if (isBetweenBasesSite(f)) {
+                // A site covers no bases (INSDC FT 11.4 §3.4.2.1), so it is a boundary, not a bar:
+                // a rule between the two bases with a caret under it, as `^` writes it.
+                const x = xScale(f.start) - scrollX;
+                if (x < -60 || x > viewportWidth + 4) return null;
+                const color = isSelected ? '#000' : f.color || getFeatureColor(f.type, customColors);
+                const base = y + barHeight;
+                return place(
+                  <g data-annotation-site="" data-annotation-feature={f.name} data-state={isSelected ? 'selected' : 'unselected'} data-x={x}>
+                    <line x1={x} x2={x} y1={y - 1} y2={base} stroke={color} strokeWidth={isSelected ? 2 : 1.5} />
+                    <path d={`M${x - 4},${base + 1}L${x},${base - 4}L${x + 4},${base + 1}Z`} fill={color} />
+                    <text x={x + 6} y={y + ANNOT_BAR_HEIGHT / 2} fontSize={9} fontWeight={600} dominantBaseline="central"
+                      style={{ fill: `color-mix(in srgb, ${color} 62%, #0f172a)` }} pointerEvents="none">{f.name}</text>
+                    <rect data-annotation-part="" x={x - 5} y={y - 2} width={10} height={barHeight + 4} fill="transparent" {...interactions} />
+                  </g>
+                );
+              }
+
               if (f.segments && f.segments.length > 0) {
                 const lineY = y + ANNOT_BAR_HEIGHT / 2;
                 
                 // Connectors pair intervals as the location writes them, the order the origin test reads.
                 const written = writtenOrderSegments(f) ?? f.segments;
                 const connectingLines: React.ReactElement[] = [];
-                for (let idx = 0; idx < written.length - 1; idx++) {
+                // order() places its intervals without joining them (LOC-2), so nothing connects them.
+                for (let idx = 0; isJoinedLocation(f) && idx < written.length - 1; idx++) {
                   const s1 = written[idx];
                   const s2 = written[idx + 1];
 
@@ -443,7 +502,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   }
                 }
                 
-                const labelIdx = f.segments.findIndex(seg => partVisible(seg.start, seg.end));
+                const labelIdx = f.segments.findIndex(seg => seg.start !== seg.end && partVisible(seg.start, seg.end));
                 // Pieces on either side of a circular origin sit at opposite ends of the track, so each gets the name.
                 const crossesOrigin = written.some((s1, k) => k < written.length - 1 && (isWrap || s1.end >= lastBaseEnd) && s1.end > written[k + 1].start);
                 const terminalIdx = terminalSegmentIndex(f);
@@ -491,7 +550,7 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
               className="absolute z-30 ml-1 pointer-events-none whitespace-nowrap rounded-full bg-amber-500 px-2 text-[11px] font-bold leading-[14px] text-amber-950 shadow-xs animate-in fade-in duration-300 motion-reduce:animate-none"
               style={{ left: focusLabelLeft, top: 2 }}
             >
-              {`${focusedRegion.label} · ${focusedRegion.length.toLocaleString()} bp`}
+              {`${focusedRegion.label} · ${focusedRegion.lengthText ?? `${focusedRegion.length.toLocaleString()} ${l.record.moleculeType === 'protein' ? 'aa' : 'bp'}`}`}
             </div>
           )}
 
@@ -501,7 +560,8 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
             const trackTop = l.annotHeight + l.topPadding + track.top;
             return (
               <div 
-                key={track.id} 
+                key={track.id}
+                data-quantitative-track={track.id}
                 className="absolute left-0 right-0 border border-slate-200/60 bg-white/60 rounded-xs shadow-[0_1px_3px_rgba(0,0,0,0.05)] group/track z-30 mx-0.5"
                 style={{ height: track.height, top: trackTop }}
                 onPointerMove={(e) => {
@@ -509,27 +569,38 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
                   const bp = xScale.invert(x + scrollX);
-                  const nearest = track.data.find((d: TrackDatum) => bp >= d.start && bp <= d.end);
+                  const matches = pickTrackData(track.display, bp);
+                  const lane = Math.floor((e.clientY - rect.top - 5) / 16);
+                  const nearest = track.kind === 'interval'
+                    ? pickTrackData({ ...track.display, placed: track.packedRows[lane] ?? [] }, bp)[0]
+                    : matches[0];
+                  highlightTrackInterval(track.id, nearest?.source.index);
                   if (nearest) {
                     setTooltip({ 
                       x: e.pageX, 
                       y: e.pageY, 
-                      content: `${track.name}\nPos: ${Math.floor(bp) + 1}\nValue: ${nearest.value}` 
+                      content: `${track.name}${matches.length > 1 ? `\n${matches.length} overlapping intervals` : ''}\nPos: ${trackPosition(track.display, bp)! + 1}\n${matches.map(piece => `Interval ${piece.source.start + 1}..${piece.source.end}\nValue: ${piece.value}`).join('\n')}`
                     });
                   } else {
                     setTooltip(null);
                   }
                 }}
-                onPointerLeave={() => setTooltip(null)}
+                onPointerLeave={() => { setTooltip(null); setHoveredTrack(null); }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
                   const bp = xScale.invert(x + scrollX);
-                  const nearest = track.data.find((d: TrackDatum) => bp >= d.start && bp <= d.end);
+                  const lane = Math.floor((e.clientY - rect.top - 5) / 16);
+                  const candidates = track.kind === 'interval'
+                    ? { ...track.display, placed: track.packedRows[lane] ?? [] }
+                    : track.display;
+                  const matches = pickTrackData(candidates, bp);
+                  const nearest = matches[0];
                   if (nearest) {
-                    onSelectionChange({ start: nearest.start, end: nearest.end, recordIds: [l.id] });
+                    onSelectionChange({ ...nearest.envelope, recordIds: [l.id] });
+                    if (track.kind !== 'interval' && matches.length > 1) data.addLog?.(`Selected interval ${nearest.source.start + 1}..${nearest.source.end}; other overlapping intervals: ${matches.slice(1).map(piece => `${piece.source.start + 1}..${piece.source.end} (value ${piece.value})`).join(', ')}`);
                   }
                 }}
               >
@@ -543,16 +614,18 @@ export const Row = memo(({ index, style, data }: ListChildComponentProps<RowData
                     }}
                   >
                     {track.name}
+                    {track.display.unplaced.length > 0 && <span data-tip={track.display.unplaced.map(row => `${row.index + 1}: ${row.reason}`).join('\n')}> · {unplacedSummary(track.display)}</span>}
                   </span>
                 </div>
                 <QuantitativeTrack 
-                  data={track.data}
+                  display={track.display}
+                  highlighted={hoveredTrack?.id === track.id ? hoveredTrack.indices : NO_HIGHLIGHTED_INTERVALS}
                   viewportWidth={viewportWidth}
                   height={track.height}
                   xScale={xScale}
                   scrollX={scrollX}
-                  minVal={quantValueRanges[track.id]?.min || 0}
-                  maxVal={quantValueRanges[track.id]?.max || 1}
+                  minVal={quantValueRanges[track.id]?.min ?? 0}
+                  maxVal={quantValueRanges[track.id]?.max ?? 1}
                   color={trackColor}
                   kind={track.kind}
                   packedRows={track.packedRows}

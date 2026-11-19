@@ -19,8 +19,9 @@
  */
 
 
+import { displayTracks } from './quantitativeTracks';
 import type { BioFeature, FeatureSegment, SeqRecord } from "./types";
-import { splitWrapAround } from "./intervals";
+import { featureParts } from "./featureParts";
 
 /**
  * Transposes a raw-sequence position to the corresponding index in an
@@ -152,33 +153,26 @@ export const buildAlignedSegments = (
  */
 export const processTransposition = (records: SeqRecord[]): SeqRecord[] => {
   return records.map((record) => {
-    if (!record.alignedSequence) return record;
-    if (record.features.length === 0) return { ...record, features: [] };
+    const tracks = displayTracks({ ...record, displayTracks: undefined });
+    if (!record.alignedSequence) return { ...record, displayTracks: tracks, features: record.features.map(feature => {
+      const { biological: _biological, ...source } = feature;
+      return source;
+    }) };
+    if (record.features.length === 0) return { ...record, displayTracks: tracks, features: [] };
 
     const alignedSeq = record.alignedSequence;
     const transpose = createCoordinateLookup(alignedSeq);
 
     const transposedFeatures: BioFeature[] = record.features.map((feat) => {
-      const originalSegments: FeatureSegment[] =
-        feat.segments && feat.segments.length > 0
-          ? feat.segments
-          : [{ start: feat.start, end: feat.end }];
-
-      const newSegments: FeatureSegment[] = [];
-
-      for (const seg of originalSegments) {
-        const parts = splitWrapAround(seg.start, seg.end, record.sequence.length);
-
-        for (const part of parts) {
-          const aligned = transpose(part.start, part.end);
-          if (aligned.end <= aligned.start || alignedSeq[aligned.start] === "-") continue;
-          newSegments.push(seg.strand === undefined ? aligned : { ...aligned, strand: seg.strand });
-        }
-      }
-
-      return { ...feat, ...transpose(feat.start, feat.end), segments: newSegments };
+      const { biological: _biological, ...source } = feat;
+      const biological = { start: feat.start, end: feat.end, strand: feat.strand, segments: feat.segments?.map(part => ({ ...part })) };
+      const newSegments: FeatureSegment[] = featureParts(feat, { length: record.sequence.length, isCircular: record.isCircular }).map(part => {
+        const aligned = transpose(part.start, part.end);
+        return part.strand === undefined ? aligned : { ...aligned, strand: part.strand };
+      }).filter(part => part.start === part.end || alignedSeq[part.start] !== "-");
+      return { ...source, ...transpose(feat.start, feat.end), segments: newSegments, biological };
     });
 
-    return { ...record, features: transposedFeatures };
+    return { ...record, features: transposedFeatures, displayTracks: tracks };
   });
 };

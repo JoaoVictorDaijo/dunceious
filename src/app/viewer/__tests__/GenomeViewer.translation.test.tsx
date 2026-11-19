@@ -35,8 +35,8 @@ afterEach(() => { vi.restoreAllMocks(); });
 function setup(showTranslation = true, moleculeType: SeqRecord['moleculeType'] = 'dna') {
   const records: SeqRecord[] = ['first', 'second'].map(id => ({
     id, name: id, sequence: 'A'.repeat(1000), moleculeType, features: [
-      { type: 'CDS', name: 'fwd', start: 0, end: 300, strand: 1 },
-      { type: 'CDS', name: 'rev', start: 0, end: 300, strand: -1 },
+      { type: 'CDS', name: 'fwd', start: 0, end: 300, strand: 1, segments: [{ start: 0, end: 300 }] },
+      { type: 'CDS', name: 'rev', start: 0, end: 300, strand: -1, segments: [{ start: 0, end: 300 }] },
     ],
   }));
   return render(<GenomeViewer onClearSelection={() => {}} comparisonMenu={null} records={records} consensus={records[0].sequence}
@@ -101,7 +101,7 @@ it('explains on the translation band when a CDS names a genetic code NCBI does n
   expect(view.container.querySelector('[data-genetic-code-warning]')).toBeNull();
   for (let i = 0; i < 9; i++) fireEvent.click(view.getByRole('button', { name: 'Zoom in' }));
   const warning = view.container.querySelector<HTMLElement>('[data-genetic-code-warning]');
-  expect(warning?.dataset.tip).toBe('⚠ /transl_table=7 is not an NCBI genetic code; codons are not translated');
+  expect(warning?.dataset.tip).toBe('⚠ /transl_table=7 is not an NCBI genetic code. Residues assume table 1 (Standard) and may be wrong at code-sensitive codons such as TGA.');
 });
 
 it('covers both spans of an origin-crossing CDS with the genetic-code warning', () => {

@@ -44,13 +44,13 @@ export function topNavProps(w: Workbench): ComponentProps<typeof TopNav> {
     onToggleTranslation: () => view.setShowTranslation(!view.showTranslation),
     showConservation: view.showConservation,
     onToggleConservation: () => view.setShowConservation(!view.showConservation),
-    isAlignmentLoaded: derived.isAlignmentLoaded,
+    isAlignmentLoaded: w.bio.records.filter(record => record.visible !== false && record.alignedSequence !== undefined).length >= 2,
     sessionMoleculeType: derived.sessionMoleculeType,
     onSaveProject: w.files.exportProjectJson,
     onOpenProject: w.files.handleProjectUpload,
     onClearWorkspace: w.handleClearAll,
     sequenceCount: w.bio.records.length,
-    workspaceLocked: w.remoteAlignment.isAlignmentLocked,
+    workspaceLocked: w.remoteAlignment.isAlignmentLocked || w.busy,
   };
 }
 
@@ -92,9 +92,9 @@ export function sidebarProps(w: Workbench): SidebarProps {
     onSetJumpTo: w.view.setJumpTo,
     onFileUpload: files.handleFileUpload,
     onAlignmentUpload: files.handleAlignmentUpload,
-    onAlignRemote: remote.open,
+    onAlignRemote: () => { if (!w.busy) remote.open(); },
     remoteAlignmentState: remote.state,
-    isAlignmentLocked: remote.isAlignmentLocked,
+    isAlignmentLocked: remote.isAlignmentLocked || w.busy,
     onAnnotationUpload: files.handleAnnotationUpload,
     onProjectUpload: files.handleProjectUpload,
     onExportSelection: files.exportSelection,

@@ -22,6 +22,7 @@ import React from 'react';
 import RecordDetailsModal from '@/src/app/components/RecordDetailsModal';
 import FeatureEditorModal from '@/src/app/components/FeatureEditorModal';
 import MoleculeTypeMismatchModal from '@/src/app/components/MoleculeTypeMismatchModal';
+import { GenBankRefusalDialog } from '@/src/app/components/GenBankImportDiagnostics';
 import GapRemovalNotice from '@/src/app/components/GapRemovalNotice';
 import ProcessingOverlay from '@/src/app/components/ProcessingOverlay';
 import AlignRemoteModal from '@/src/app/components/AlignRemoteModal';
@@ -38,6 +39,7 @@ function EditingDialogs({ w }: { w: Workbench }) {
     <>
       {viewingRecordDetails && (
         <RecordDetailsModal
+          returnFocusTo={details.detailsInvoker.current}
           record={viewingRecordDetails}
           feature={viewingFeatureDetails}
           onClose={details.closeDetails}
@@ -67,7 +69,8 @@ function EditingDialogs({ w }: { w: Workbench }) {
 /** Import notices and the remote alignment dialog or its minimized pill. */
 function NoticeDialogs({ w }: { w: Workbench }) {
   const { files, bio, remoteAlignment: remote } = w;
-  const mismatch = files.sessionMismatch;
+  const mismatch = files.moleculeTypeMismatch;
+  const gap = bio.pendingConfirmations[0];
   return (
     <>
       {mismatch && (
@@ -75,10 +78,18 @@ function NoticeDialogs({ w }: { w: Workbench }) {
           incoming={mismatch.incoming}
           loaded={mismatch.loaded}
           fileName={mismatch.fileName}
-          onClose={() => { files.closeMismatchModal(); bio.dismissSessionTypeNotice(); }}
+          onClose={files.closeMismatchModal}
         />
       )}
-      {bio.gapNotices.length > 0 && <GapRemovalNotice notices={bio.gapNotices} onClose={bio.dismissGapNotices} />}
+      {bio.genBankRefusals.length > 0 && !gap && <GenBankRefusalDialog files={bio.genBankRefusals} onClose={bio.dismissGenBankRefusals} />}
+      {gap && (
+        <GapRemovalNotice
+          key={gap.token}
+          notices={bio.pendingConfirmations}
+          onClose={() => bio.confirmGapRemoval(gap.token, false)}
+          onLoad={() => bio.confirmGapRemoval(gap.token, true)}
+        />
+      )}
       {remote.presentation === 'dialog' && (
         <AlignRemoteModal
           state={remote.state}
@@ -93,9 +104,9 @@ function NoticeDialogs({ w }: { w: Workbench }) {
           onMinimize={remote.minimize}
           onEngineChange={remote.setEngineId}
           onEmailChange={remote.setEmail}
-          onSubmit={() => { void remote.submit(); }}
+          onSubmit={() => { if (!w.busy) void remote.submit(); }}
           onCancel={remote.cancel}
-          onRetry={remote.retry}
+          onRetry={() => { if (!w.busy) remote.retry(); }}
         />
       )}
       {remote.presentation === 'pill' && <AlignmentJobPill state={remote.state} onOpen={remote.open} />}
@@ -107,7 +118,7 @@ function NoticeDialogs({ w }: { w: Workbench }) {
 export function WorkbenchOverlays({ w }: { w: Workbench }) {
   return (
     <>
-      <ProcessingOverlay isProcessing={w.bio.isProcessing && !w.remoteAlignment.isAlignmentLocked} />
+      <ProcessingOverlay isProcessing={w.bio.isProcessing && w.bio.pendingConfirmations.length === 0 && !w.remoteAlignment.isAlignmentLocked} />
       <EditingDialogs w={w} />
       <NoticeDialogs w={w} />
     </>

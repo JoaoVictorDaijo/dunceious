@@ -25,6 +25,7 @@ import { render, screen, fireEvent, act } from '@/src/app/testing/renderHarness'
 import RecordDetailsModal from '../RecordDetailsModal';
 import { UiEffectsContext, DEFAULT_UI_EFFECTS } from '../uiEffects';
 import { parseGenBank } from '@/src/core/genbank';
+import { checkTranslation } from '@/src/domain/bio/translation';
 import type { BioFeature, SeqRecord } from '@/src/domain/bio/types';
 
 const radio = (name: string) => screen.getByRole('radio', { name }) as HTMLInputElement;
@@ -41,7 +42,7 @@ describe('RecordDetailsModal biological coordinates', () => {
       onFocusFeature={onFocusFeature} onExportRecord={() => {}} onCopyLog={() => {}} />);
     expect(lengths()).toBe('7 bp feature sequence · sum of 2 location intervals8 bp region spanned · 1..8');
     fireEvent.click(screen.getByText(/Focus/));
-    expect(onFocusFeature).toHaveBeenCalledWith({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7 });
+    expect(onFocusFeature).toHaveBeenCalledWith({ recordId: 'r', featureIndex: 0, start: 2, end: 16, label: 'joined', length: 7, lengthText: '7 bp' });
   });
 });
 
@@ -56,20 +57,20 @@ it('offers query bases only for a hit, shows staleness and removes search detail
   fireEvent.click(screen.getByRole('button', { name: 'Remove search details' }));
   expect(remove).toHaveBeenCalledOnce();
 });
-it('keeps joined annotations on record bases only', () => {
-  const feature = { name: 'joined', type: 'misc_feature', start: 0, end: 3, strand: 1 as const, segments: [{ start: 0, end: 1 }, { start: 2, end: 3 }] };
+it.each(['join', 'order'] as const)('keeps %s() annotations with several intervals on record bases only', operator => {
+  const feature = { name: 'parts', type: 'misc_feature', start: 0, end: 3, strand: 1 as const, operator, segments: [{ start: 0, end: 1 }, { start: 2, end: 3 }] };
   render(<RecordDetailsModal record={{ id: 'r', name: 'r', sequence: 'ACG', features: [feature] }} feature={feature}
     onClose={vi.fn()} onFocusFeature={vi.fn()} onExportRecord={vi.fn()} onCopyLog={vi.fn()} onSetBasesMode={vi.fn()} />);
   expect(screen.queryByRole('option', { name: 'Query aligned to record' })).toBeNull();
-  expect(screen.getByText("The query layer isn't available for joined annotations.")).toBeTruthy();
+  expect(screen.getByText("The query layer isn't available for annotations with more than one interval.")).toBeTruthy();
 });
 
 // Expected sequences come from docs/standards/conformance/expected-oracle.txt (INSDC rules by hand).
 const dir = 'docs/standards/conformance';
-const [fixture] = parseGenBank(readFileSync(`${dir}/fixture.gb`, 'utf8'));
+const [fixture] = parseGenBank(readFileSync(`${dir}/fixture.gb`, 'utf8')).records;
 const oracle = Object.fromEntries(readFileSync(`${dir}/expected-oracle.txt`, 'utf8').trim().split('\n')
   .map(line => line.split('\t') as [string, string]));
-const labelled = (label: string) => fixture.features.find(f => f.metadata?.label === label)!;
+const labelled = (label: string) => fixture.features.find(f => f.unknownQualifiers?.label === label)!;
 
 function open(record: SeqRecord, feature: BioFeature) {
   const copyText = vi.fn().mockResolvedValue(true);
@@ -78,7 +79,7 @@ function open(record: SeqRecord, feature: BioFeature) {
     <RecordDetailsModal record={record} feature={feature} onClose={vi.fn()} onFocusFeature={vi.fn()}
       onExportRecord={vi.fn()} onCopyLog={onCopyLog} />
   </UiEffectsContext.Provider>);
-  const sequence = () => document.querySelector('[data-record-details-body] p.break-all')?.textContent?.toUpperCase();
+  const sequence = () => document.querySelector('[data-feature-sequence]')?.textContent?.toUpperCase();
   return { copyText, onCopyLog, sequence };
 }
 
@@ -130,9 +131,9 @@ describe('RecordDetailsModal sequence views', () => {
   it('flags a partial location next to its length and in the caption', () => {
     const { sequence } = open(fixture, labelled('P1'));
     expect(sequence()).toBe(oracle.P1.split(' ')[0]);
-    expect(lengths()).toBe('21 bp Partial feature sequence · 1 location interval21 bp region spanned · 5..25');
+    expect(lengths()).toBe('21 bp 5′ and 3′ partial feature sequence · 1 location interval21 bp region spanned · 5..25');
     expect(caption()).toBe('Sequence defined by the location: bases 5..25. Read 5′ → 3′ on the forward (+) strand. Partial: at least one end lies beyond the annotated base (< or >), so this sequence is incomplete.');
-    expect(screen.queryByText('Partial', { selector: '[data-record-details-body] span' })).toBeTruthy();
+    expect(screen.queryByText('5′ and 3′ partial', { selector: '[data-record-details-body] span' })).toBeTruthy();
   });
 
   it('reverse-complements a single-interval reverse CDS and names it the coding sequence', () => {
@@ -160,7 +161,7 @@ describe('RecordDetailsModal sequence views', () => {
     render(<RecordDetailsModal record={record} feature={feature} onClose={vi.fn()} onFocusFeature={vi.fn()}
       onExportRecord={vi.fn()} onCopyLog={vi.fn()} onSetBasesMode={vi.fn()} onRemoveSearchDetails={vi.fn()} />);
     // Record bases 3..6 are GCCC; on the reverse strand they read GGGC, the query.
-    expect(document.querySelector('[data-record-details-body] p.break-all')?.textContent).toBe('GGGC');
+    expect(document.querySelector('[data-feature-sequence]')?.textContent).toBe('GGGC');
     expect(screen.getByRole('option', { name: 'Query aligned to record' }).hasAttribute('disabled')).toBe(false);
     expect(screen.getByRole('button', { name: 'Remove search details' })).toBeTruthy();
   });
@@ -184,7 +185,7 @@ describe('RecordDetailsModal edge captions and controls', () => {
 
   it('keeps the partial explanation for a partial order() location', () => {
     const feature: BioFeature = { type: 'misc_feature', name: 'po', start: 0, end: 13, strand: 1,
-      segments: [{ start: 0, end: 3 }, { start: 10, end: 13 }], locationString: 'order(<1..3,11..>13)' };
+      operator: 'order', segments: [{ start: 0, end: 3, partialStart: true }, { start: 10, end: 13, partialEnd: true }], locationString: 'order(<1..3,11..>13)' };
     open(fixture, feature);
     expect(caption()).toMatch(/only the region spanned is shown\. Record bases 1\.\.13, .* Partial: at least one end lies beyond the annotated base/);
   });
@@ -242,4 +243,114 @@ describe('RecordDetailsModal nested complement sequence views', () => {
     open(fixture, labelled(label));
     expect(caption()).toBe(`Sequence defined by the location: the 2 intervals joined in the order written, inner complement(…) intervals reverse-complemented, then the joined result reverse-complemented because the location is complement(…). ${read}`);
   });
+});
+
+it.each([undefined, 'order(1..3,7..9)'])('shows actual feature locus with retained text taking precedence %s', locationString => {
+  const feature: BioFeature = { name: 'joined', type: 'gene', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 3 }, { start: 6, end: 9 }], locationString };
+  render(<RecordDetailsModal record={{ id: 'r', name: 'r', sequence: 'ACGTACGTAC', features: [feature] }} feature={feature} onFocusFeature={() => {}} onClose={() => {}} onExportRecord={() => {}} onCopyLog={() => {}} />);
+  expect(screen.getByText(locationString ?? 'join(1..3,7..9)').className).toContain('break-all');
+});
+
+it('shows invalid location without derived sequence or lengths and labels stored translation', () => {
+  const feature: BioFeature = { type: 'CDS', name: 'invalid', start: 8, end: 2, strand: 1, metadata: { translation: 'STORED' } };
+  render(<RecordDetailsModal record={{ id: 'r', name: 'r', sequence: 'ACGTACGTGA', features: [feature] }} feature={feature} onFocusFeature={() => {}} onClose={() => {}} onExportRecord={() => {}} onCopyLog={() => {}} />);
+  expect(screen.getByText('9..2 (invalid location)')).toBeTruthy();
+  expect(document.querySelector('[data-feature-sequence]')?.textContent).toBe('');
+  expect(document.querySelector('[data-feature-lengths]')?.textContent).toBe('Invalid location');
+  expect(screen.getByText("Stored translation. The location is invalid, so it isn't checked against the sequence.")).toBeTruthy();
+  expect(screen.getByText('STORED', { selector: 'p' })).toBeTruthy();
+  const region = screen.queryByRole('radio', { name: 'Region spanned' });
+  if (region) fireEvent.click(region);
+  expect(document.querySelector('[data-feature-sequence]')?.textContent).toBe('');
+});
+
+it('offers both record FASTA modes for aligned records and only no gaps otherwise', () => {
+  const record: SeqRecord = { id: 'a', name: 'a', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] };
+  const exported = vi.fn();
+  const props = { record, feature: null, onClose: vi.fn(), onFocusFeature: vi.fn(), onExportRecord: exported, onCopyLog: vi.fn() };
+  const view = render(<RecordDetailsModal {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'FASTA (aligned)' }));
+  fireEvent.click(screen.getByRole('button', { name: 'FASTA (no gaps)' }));
+  expect(exported.mock.calls).toEqual([['a', 'aligned'], ['a', 'original']]);
+  view.rerender(<RecordDetailsModal {...props} record={{ ...record, alignedSequence: undefined }} />);
+  expect(screen.queryByRole('button', { name: 'FASTA (aligned)' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'FASTA (no gaps)' })).toBeTruthy();
+});
+
+
+describe('RecordDetailsModal record summary', () => {
+  const field = (name: string) => screen.getByText(name, { selector: 'label' }).nextElementSibling?.textContent;
+  const show = (record: SeqRecord) => render(<RecordDetailsModal record={record} feature={null}
+    onClose={vi.fn()} onFocusFeature={vi.fn()} onExportRecord={vi.fn()} onCopyLog={vi.fn()} />);
+
+  it('separates nucleotide residues from alignment columns and keeps the raw badge on residues', () => {
+    show({ id: 'local-id', name: 'nucleotide', sequence: 'ACGT', alignedSequence: 'AC--GT', features: [] });
+    expect(field('Length')).toBe('4 bp');
+    expect(field('Alignment length')).toBe('6 columns');
+    expect(screen.getByText('4 bp', { selector: 'span' })).toBeTruthy();
+  });
+
+  it.each([undefined, 'M--A'])('uses amino-acid units on the protein Length and raw badge (alignment %s)', alignedSequence => {
+    show({ id: 'protein', name: 'protein', moleculeType: 'protein', sequence: 'MA', alignedSequence, features: [] });
+    expect(field('Length')).toBe('2 aa');
+    expect(screen.getByText('2 aa', { selector: 'span' })).toBeTruthy();
+    if (alignedSequence === undefined) expect(screen.queryByText('Alignment length')).toBeNull();
+    else expect(field('Alignment length')).toBe('4 columns');
+  });
+
+  it('shows an existing empty alignment as zero columns', () => {
+    show({ id: 'empty', name: 'empty', sequence: '', alignedSequence: '', features: [] });
+    expect(field('Length')).toBe('0 bp');
+    expect(field('Alignment length')).toBe('0 columns');
+  });
+
+  it.each([undefined, '', '   ', ' AB123456 '])('keeps accession %s distinct from the local identifier', accession => {
+    show({ id: 'local-id', name: 'local', sequence: 'ACGT', accession, features: [] });
+    expect(field('Accession')).toBe(accession === ' AB123456 ' ? 'AB123456' : '—');
+    expect(field('Identifier')).toBe('local-id');
+    expect(screen.queryByText('Alignment length')).toBeNull();
+  });
+});
+
+// #245 and owner decision 7: a location with an interval in another record shows no feature
+// sequence; the length counts this record's bases and names the other record.
+describe('remote location intervals', () => {
+  it('names the other record instead of showing its bases', () => {
+    const feature: BioFeature = { type: 'CDS', name: 'r', start: 0, end: 4, strand: 1, operator: 'join',
+      segments: [{ start: 0, end: 4 }], remoteParts: [{ accession: 'J00194.1', start: 99, end: 202, strand: 1, index: 1 }],
+      locationString: 'join(1..4,J00194.1:100..202)' };
+    open({ id: 'r', name: 'r', sequence: 'ACGTACGT', features: [feature] }, feature);
+    expect(caption()).toMatch(/^Intervals in other records: 1 interval in J00194\.1 is not in this record, so no feature sequence is shown/);
+    expect(lengths()).toMatch(/^4 bp in this record, plus 1 interval in J00194\.1/);
+  });
+});
+
+it('keeps every internal-stop diagnostic and every raw occurrence in the labelled details surface', () => {
+ const sequence = 'ATG' + 'TGA'.repeat(32) + 'TAA';
+ const entries = ['(pos:X.1:4..6,aa:Sec)', `(pos:${' '.repeat(2000)}4..6,aa:TERM)`];
+ const f: BioFeature = { type: 'CDS', name: 'dense', start: 0, end: sequence.length, strand: 1, segments: [{ start: 0, end: sequence.length }],
+   metadata: { translation: 'M' + 'X'.repeat(32), transl_table: '11' }, translationExceptions: entries };
+ render(<RecordDetailsModal record={{ id: 'r', name: 'r', sequence, moleculeType: 'dna', features: [f] }} feature={f}
+   onClose={vi.fn()} onFocusFeature={vi.fn()} onExportRecord={vi.fn()} onCopyLog={vi.fn()} />);
+ const details = screen.getByRole('region', { name: 'Translation diagnostics' });
+ expect(details.textContent).toContain('32 internal stops');
+ expect(details.textContent).toContain('Internal stop at codon 2, bases 4, 5, 6');
+ expect(details.textContent).toContain('Internal stop at codon 33, bases 97, 98, 99');
+ for (const raw of entries) expect(details.textContent).toContain(raw);
+});
+
+it.each([
+ ['ATGAAATAA', 'MK', ['(pos:X.1:4..6,aa:Sec)'], 'another exact accession/version'],
+ ['ATGTGATAA', 'MU', ['(pos:4..6,aa:Sec)', '(pos:4..6,aa:Pyl)'], 'conflicting residues'],
+] as const)('keeps normalized dropped literals in complete details for %s', (sequence, translation, entries, reason) => {
+ const source: SeqRecord = { id: 'r', name: 'r', accession: 'R', version: 'R.1', sequence, moleculeType: 'dna', features: [] };
+ const feature = checkTranslation({ type: 'CDS', name: 'c', start: 0, end: 9, strand: 1, segments: [{ start: 0, end: 9 }],
+   metadata: { translation, transl_table: '11' }, translationExceptions: [...entries] }, source);
+ expect(feature.translationExceptions).toEqual([]);
+ render(<RecordDetailsModal record={{ ...source, features: [feature] }} feature={feature}
+   onClose={vi.fn()} onFocusFeature={vi.fn()} onExportRecord={vi.fn()} onCopyLog={vi.fn()} />);
+ const details = screen.getByRole('region', { name: 'Translation diagnostics' });
+ for (const raw of entries) expect(details.textContent).toContain(raw);
+ expect(details.textContent).toContain('dropped');
+ expect(details.textContent).toContain(reason);
 });

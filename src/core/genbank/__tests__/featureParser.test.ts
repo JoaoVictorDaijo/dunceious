@@ -98,7 +98,7 @@ describe('parseFeatures – qualifiers', () => {
       '     CDS             1..20\n' +
       '                     /translation="MTEST"';
     const [f] = parseFeatures(wrapInRecord(block));
-    expect(f.translation).toBe('MTEST');
+    expect(f?.metadata?.translation).toBe('MTEST');
     expect(f.metadata!['translation']).toBe('MTEST');
   });
 

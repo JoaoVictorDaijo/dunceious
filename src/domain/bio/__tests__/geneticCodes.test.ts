@@ -19,6 +19,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { parseLocation } from '@/src/core/genbank/locationParser';
 import { describe, it, expect } from 'vitest';
 import { detectEarlyStop, extractCodingSequence, featureTranslTable, isNcbiGeneticCode, translateFeature, translateSequence } from '@/src/domain/bio/sequence';
 
@@ -88,15 +89,16 @@ describe('translateFeature at the end of a complete CDS', () => {
     [1, 'ATGAAATAA', 'MK_'],
   ])('reads the last codon of a complete table-%i CDS as the stop', (table, seq, protein) => {
     expect(translateFeature({}, seq, table)).toBe(protein);
-    expect(translateFeature({ translation: 'MK' }, seq, table)).toBe(protein);
+    expect(translateFeature({ metadata: { translation: 'MK' } }, seq, table)).toBe(protein);
   });
 
   it('keeps internal dual-coding codons as residues', () => {
     expect(translateFeature({}, 'ATGTGAAAATGA', 27)).toBe('MWK_');
   });
 
-  it.each(['1..>9', 'complement(<1..9)'])('preserves the sense residue at a 3′-partial CDS end: %s', locationString => {
-    expect(translateFeature({ locationString }, 'ATGAAATGA', 27)).toBe('MKW');
+  it.each(['1..>9', 'complement(<1..9)'])('preserves the sense residue at a 3′-partial CDS end: %s', location => {
+    const { strand, segments } = parseLocation(location);
+    expect(translateFeature({ strand, segments }, 'ATGAAATGA', 27)).toBe('MKW');
   });
 
   // Oracle: the NCBI validator's translation, which marks the terminal stop only when the 3′ end
@@ -105,8 +107,13 @@ describe('translateFeature at the end of a complete CDS', () => {
     id: string; sequence: string; location: string;
     segments: { start: number; end: number; strand: 1 | -1 }[]; validatorStopResidues: number[];
   }[] } = JSON.parse(readFileSync(new URL('./fixtures/ncbi-validator-terminal-stop.json', import.meta.url), 'utf8'));
+  // The 3′ end is read from the parsed per-end flags, not the location text, so the validator's
+  // verdict holds after an edit or a selection export has cleared that text (#226).
   it.each(validator.cases)('matches the NCBI validator terminal stop: $id ($location)', ({ sequence, location, segments, validatorStopResidues }) => {
-    const feature = { start: 0, end: sequence.length, strand: segments[0].strand, segments, locationString: location };
+    const parsed = parseLocation(location);
+    const pinned = { start: 0, end: sequence.length, strand: segments[0].strand, segments };
+    expect(extractCodingSequence(parsed, sequence).codingSeq).toBe(extractCodingSequence(pinned, sequence).codingSeq);
+    const feature = { start: parsed.start, end: parsed.end, strand: parsed.strand, segments: parsed.segments };
     const protein = translateFeature(feature, extractCodingSequence(feature, sequence).codingSeq, 27);
     const stops = [...protein].flatMap((residue, i) => residue === '_' ? [i + 1] : []);
     expect(stops).toEqual(validatorStopResidues);
@@ -136,6 +143,6 @@ describe('translateFeature at the end of a complete CDS', () => {
 
   it('keeps alternative initiation literal unless a stored translation supplies Met', () => {
     expect(translateFeature({}, 'GTGAAATAA', 11)).toBe('VK_');
-    expect(translateFeature({ translation: 'MK' }, 'GTGAAATAA', 11)).toBe('MK_');
+    expect(translateFeature({ metadata: { translation: 'MK' } }, 'GTGAAATAA', 11)).toBe('MK_');
   });
 });

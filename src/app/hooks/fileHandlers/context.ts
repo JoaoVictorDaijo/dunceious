@@ -19,6 +19,7 @@
  */
 
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import type { SessionTypeConflict } from '@/src/domain/bio/sequence';
 import type { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
 import type { AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
 import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
@@ -36,9 +37,7 @@ export interface ProjectSetters {
   setIsProcessing: Dispatch<SetStateAction<boolean>>;
 }
 
-export interface MoleculeTypeMismatchError {
-  incoming: 'nucleotide' | 'protein';
-  loaded: 'nucleotide' | 'protein';
+export interface MoleculeTypeMismatchError extends SessionTypeConflict {
   fileName: string;
 }
 
@@ -56,8 +55,7 @@ export interface DropImport {
 export interface FileHandlerContext {
   bioWorkerRef: MutableRefObject<Worker | null>;
   records: SeqRecord[];
-  /** Live records: the worker's committed state when available, else the latest render's. */
-  getRecords: () => SeqRecord[];
+  getWorkspaceRevision: () => number;
   activeSelection: SelectionArea | null;
   featureColors: Record<string, string>;
   viewportState: ViewportState;
@@ -66,7 +64,6 @@ export interface FileHandlerContext {
   isAlignmentLocked: () => boolean;
   dropImport?: DropImport;
   readText: (file: File) => Promise<string>;
-  reportMismatch: (mismatch: MoleculeTypeMismatchError) => void;
   /** Bumped when a project replaces the workspace, so in-flight drops stop. */
   workspaceRevision: MutableRefObject<number>;
 }

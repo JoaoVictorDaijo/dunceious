@@ -36,13 +36,14 @@ export interface UseFileHandlersReturn {
   handleAlignmentUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleAnnotationUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleProjectUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  handleExportRecord: (recordId: string) => void;
+  handleExportRecord: (recordId: string, mode?: 'original' | 'aligned') => void;
   exportRecords: (ids: string[], format: HubExportFormat, options?: ExportOptions) => void;
-  exportSelection: () => void;
+  exportSelection: (mode?: 'original' | 'aligned') => void;
   exportSelectionJson: () => void;
   exportProjectJson: () => string | null;
   moleculeTypeMismatch: MoleculeTypeMismatchError | null;
   closeMismatchModal: () => void;
+  showMismatchModal: (error: MoleculeTypeMismatchError) => void;
 }
 
 /**
@@ -71,15 +72,12 @@ export function useFileHandlers(
   dropImport?: DropImport,
 ): UseFileHandlersReturn {
   const [moleculeTypeMismatch, setMoleculeTypeMismatch] = useState<MoleculeTypeMismatchError | null>(null);
-  const recordsRef = useRef(records);
-  recordsRef.current = records;
   const dropQueue = useRef(Promise.resolve());
   const workspaceRevision = useRef(0);
   const ctx: FileHandlerContext = {
     bioWorkerRef, records, activeSelection, featureColors, viewportState, setters, addLog, isAlignmentLocked, dropImport,
-    getRecords: () => dropImport?.getRecords() ?? recordsRef.current,
+    getWorkspaceRevision: () => dropImport?.getWorkspaceRevision?.() ?? workspaceRevision.current,
     readText: dropImport?.readText ?? readFileAsText,
-    reportMismatch: setMoleculeTypeMismatch,
     workspaceRevision,
   };
   const project = useProjectFile(ctx);
@@ -90,6 +88,7 @@ export function useFileHandlers(
     handleProjectUpload: project.handleProjectUpload,
     exportProjectJson: project.exportProjectJson,
     moleculeTypeMismatch,
+    showMismatchModal: setMoleculeTypeMismatch,
     closeMismatchModal: () => setMoleculeTypeMismatch(null),
   };
 }

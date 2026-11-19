@@ -51,7 +51,7 @@ export function useProjectFile(ctx: FileHandlerContext) {
     return ctx.readText(file)
       .then(text => {
         if (isAlignmentLocked()) { setIsProcessing(false); return; }
-        const parsed = parseProject(text);
+        const parsed = parseProject(text, addLog);
         if (!parsed.ok) { addLog(parsed.message); return; }
         restoreProject(ctx, parsed.project);
         if (parsed.project.name?.trim()) setProjectName(parsed.project.name.trim());
