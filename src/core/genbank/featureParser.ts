@@ -22,8 +22,7 @@
  * Parses the FEATURES section of a single-record GenBank line array.
  *
  * Feature type lines start at column 5 (5-space indent) followed by the
- * location string.  Long location strings may wrap onto continuation lines
- * (indented 21 spaces) that do not start with '/'.
+ * location string. Long locations may wrap onto continuation lines indented 21 spaces.
  */
 
 import { FEATURE_TABLE } from '@/src/domain/bio/insdcFeatureTable';
@@ -38,6 +37,15 @@ import { parseQualifiers } from './qualifierParser';
 const NAME_QUALIFIERS = ['gene', 'product', 'label', 'locus_tag'];
 
 const INDENT21 = ' '.repeat(21);
+
+function parenthesisDelta(text: string): number {
+  let depth = 0;
+  for (const char of text) {
+    if (char === '(') depth++;
+    else if (char === ')') depth--;
+  }
+  return depth;
+}
 
 export function parseFeatures(lines: string[], finding?: FindingSink, protein = false, length?: number, circular = false): BioFeature[] {
   const features: BioFeature[] = [];
@@ -68,14 +76,17 @@ export function parseFeatures(lines: string[], finding?: FindingSink, protein = 
     const featureLine = i + 1;
     const [, type, initialLoc] = featureMatch;
     const locationLines = [initialLoc ?? ''];
+    let openParentheses = parenthesisDelta(locationLines[0]);
 
-    // Accumulate multi-line location (continuation lines, no qualifier)
+    // INSDC FT 11.4 §3.3.2 puts qualifiers after the location, which can itself contain '/'.
     while (
       i + 1 < lines.length &&
       lines[i + 1].startsWith(INDENT21) &&
-      !lines[i + 1].trim().startsWith('/')
+      (openParentheses > 0 || !lines[i + 1].trim().startsWith('/'))
     ) {
-      locationLines.push(lines[++i].slice(INDENT21.length));
+      const continuation = lines[++i].slice(INDENT21.length);
+      locationLines.push(continuation);
+      openParentheses += parenthesisDelta(continuation);
     }
 
     const fullLocation = locationLines.map(part => part.trim()).join('');

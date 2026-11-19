@@ -306,8 +306,9 @@ between-base sites. This applies to project JSON and GenPept selection exports.
 
 Every other GenPept location containing `bond(` is opaque, including `bond(1 2,6)`.
 Import keeps the entire descriptor verbatim in GenBank exports and saved projects without
-validating the location grammar or any
-sequence IDs or versions. This covers fuzzy bonds and compound descriptors, including the
+validating the location grammar or any sequence IDs or versions. A slash at the start of an
+indented continuation remains part of the descriptor while the location has open parentheses.
+This covers fuzzy bonds and compound descriptors, including the
 [wrappers](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L396-L463)
 and [remote ID forms](https://github.com/ncbi/ncbi-cxx-toolkit-public/blob/2b8ccee/src/objtools/format/flat_seqloc.cpp#L710-L732)
 emitted by the NCBI flat-file formatter.

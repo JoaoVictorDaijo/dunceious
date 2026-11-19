@@ -97,7 +97,8 @@ it does not prescribe Dunceious's name-selection algorithm.
 **Dunceious.** `insdcFeatureTable.ts` is generated offline from the pinned INSDC 11.4
 Appendices II/III. Unknown keys and wrong-key recognised qualifiers warn; missing mandatory
 nucleotide qualifiers refuse, including conditional `assembly_gap` linkage evidence and the
-`old_sequence` citation/compare alternative. Repeated qualifiers warn while keeping the last
+`old_sequence` citation/compare alternative. An indented slash-led line continues the location
+while its parentheses remain open. Repeated qualifiers warn while keeping the last
 value, except `/transl_except`, whose occurrences are preserved in an ordered `translationExceptions` array ([#242](https://github.com/JoaoVictorDaijo/dunceious/issues/242)). A slash at the start of a
 continuation line remains text while a quoted qualifier is open. Embedded quotes use doubled
 quotes, and text after the closing quote is refused. Malformed qualifier and feature lines

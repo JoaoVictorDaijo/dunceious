@@ -102,6 +102,19 @@ it('checks the second endpoint of a protein bond against the record length', () 
   });
 });
 
+it('keeps a slash-led location continuation and reads the label after the bond closes', () => {
+  const input = genBank('PROT 6 aa linear', 'mcaavc', `     Bond            bond(<2,
+                     /foo:6)
+                     /label="Cross-link"
+`);
+  expect(importGenBank(input)).toMatchObject({
+    type: 'PARSE_SUCCESS',
+    findings: [{ code: 'undrawn-protein-bonds', tier: 'warning',
+      message: 'Protein bonds kept without drawing: Bond Cross-link (bond(<2,/foo:6)).' }],
+    records: [{ features: [{ name: 'Cross-link', locationString: 'bond(<2,/foo:6)', segments: [] }] }],
+  });
+});
+
 it.each([
   ['acſt', '4 bp', 'ſ', 3],
   ['AſGT', '4 bp', 'ſ', 2],
