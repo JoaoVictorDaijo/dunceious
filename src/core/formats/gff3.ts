@@ -146,6 +146,7 @@ function addQualifiers(
   for (const key of Object.keys(metadata)) {
     if (key.startsWith('_') || ['ID', 'Name', 'phase', 'score', 'source', 'insdc_type'].includes(key)) continue;
     const outputKey = NUCLEOTIDE_QUALIFIERS.has(key) || PROTEIN_QUALIFIERS.has(key) || ['Dbxref', 'Note', 'Alias', 'Ontology_term', 'Parent', 'Target', 'Gap', 'Derives_from', 'Is_circular'].includes(key) ? key : key.toLowerCase();
+    if (outputKey === 'part') continue;
     const previous = attrs[outputKey];
     const values = previous === undefined ? [] : Array.isArray(previous) ? previous : [previous];
     let items = attributeValues(metadata, key);
@@ -377,7 +378,7 @@ function parseAttributes(raw: string): Record<string, string> {
   return result;
 }
 
-/** Reads and removes one of Dunceious's own `insdc_*` list attributes. */
+/** Consumes an attribute and its cached list so neither persists as feature metadata. */
 function takeListAttribute(feature: BioFeature, key: string): string | undefined {
   const metadata = feature.metadata!;
   const raw = metadata[key];
@@ -466,7 +467,8 @@ function readRows(content: string, lengths: Map<string, number>): AnnotationRow[
     }
     const malformed = malformedCodeBreakMessage(feature);
     if (malformed) throw new Error(malformed);
-    rows.push({ seqid, feature, rowNumber, text: line });
+    const partRank = metadata.part === undefined ? undefined : takeListAttribute(feature, 'part');
+    rows.push({ seqid, feature, rowNumber, text: line, partRank });
   }
 
   return rows;

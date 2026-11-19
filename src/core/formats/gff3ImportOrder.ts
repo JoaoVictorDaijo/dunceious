@@ -29,6 +29,7 @@ export interface AnnotationRow {
   feature: BioFeature;
   rowNumber: number;
   text: string;
+  partRank?: string;
 }
 
 export interface GffImportNotice {
@@ -83,14 +84,17 @@ function acceptPrivateOrder(group: AnnotationRow[], length: number): boolean {
   return true;
 }
 
+/** NCBI documents part=X/Y, and annotwriter fixtures also use bare ranks. */
 function sortByPart(group: AnnotationRow[]): boolean {
-  const ranks = group.map(({ feature }) => {
-    const rank = feature.metadata!.part;
-    return /^[1-9]\d*$/.test(rank) ? Number(rank) : NaN;
-  });
-  if (ranks.some(rank => !Number.isSafeInteger(rank) || rank > group.length) || new Set(ranks).size !== group.length) return false;
-  const ranked = group.map((row, index) => ({ row, rank: ranks[index] }));
-  ranked.sort((a, b) => a.rank - b.rank).forEach(({ row }, index) => { group[index] = row; });
+  const ranked: AnnotationRow[] = [];
+  for (const row of group) {
+    const match = /^([1-9]\d*)(?:\/([1-9]\d*))?$/.exec(row.partRank ?? '');
+    if (!match) return false;
+    const index = Number(match[1]) - 1;
+    if (index >= group.length || ranked[index] || (match[2] !== undefined && Number(match[2]) !== group.length)) return false;
+    ranked[index] = row;
+  }
+  ranked.forEach((row, index) => { group[index] = row; });
   return true;
 }
 
@@ -105,9 +109,15 @@ function orderGroup(group: AnnotationRow[], length: number, warn: (message: stri
     }
     warn('Invalid or inconsistent private ordering attributes were ignored.');
   }
+  if (group.some(row => row.partRank !== undefined)) {
+    if (sortByPart(group)) return { perInterval: group.length > 1 && (mixedDirections || first.strand === -1) };
+    warn('Invalid or incomplete part ranks were ignored.');
+  }
   if (group.length === 1) return { perInterval: false };
-  if (sortByPart(group)) return { perInterval: mixedDirections || first.strand === -1 };
-  if (mixed) return { perInterval: mixedDirections };
+  if (mixed) {
+    warn('Mixed-strand row order was taken from the file.');
+    return { perInterval: mixedDirections };
+  }
 
   const steps = group.slice(1).map((row, i) => compareCoordinates(group[i].feature, row.feature));
   if (steps.some(step => step < 0) && steps.some(step => step > 0)) {
@@ -116,17 +126,15 @@ function orderGroup(group: AnnotationRow[], length: number, warn: (message: stri
   }
   const coordinateOrder = [...group].sort((a, b) => compareCoordinates(a.feature, b.feature)
     || (a.text < b.text ? -1 : a.text > b.text ? 1 : 0));
-  const evaluationOrder = first.strand === -1 ? [...coordinateOrder].reverse() : coordinateOrder;
-  if (group.some(({ feature }) => feature.end > length) && group.some(({ feature }) => feature.end <= length)
-      && evaluationOrder.some((row, i) => row !== group[i])) {
-    warn('Rows were read in strand-relative coordinate order across the origin. File order may give a different sequence or translation.');
+  const reverse = first.strand === -1;
+  if (Number.isFinite(length) && coordinateOrder.some((row, i) => row !== group[reverse ? group.length - 1 - i : i])) {
+    warn('Rows were read in strand-relative coordinate order on a circular landmark. File order may give a different sequence or translation, especially if the feature spans the origin.');
   }
   return { coordinateOrder, perInterval: false };
 }
 
-/** GFF3 1.26 groups by ID and extends only the crossing row's end. Sort intact rows to
- * keep their phases and bounds, skipping coordinate sorting for validated private order,
- * NCBI annotwriter part ranks, mixed strands, and non-monotonic file order. */
+/** Order intact rows so each retains its phase and bounds, even when an extended row
+ * splits into two intervals after sorting. */
 export function orderAnnotationRows(rows: AnnotationRow[], lengths: Map<string, number>, circular: Set<string>,
   notices: Record<string, GffImportNotice[]>) {
   const byId = new Map<string, AnnotationRow[]>();

@@ -366,6 +366,25 @@ it('logs the separate-interval notice when end-touching GFF3 rows attach to a ci
   expect(h.log).toHaveBeenCalledWith(expect.stringMatching(/^WARNING: circle: end-touching .* read as separate intervals/));
 });
 
+it('logs a GFF3 ordering notice under the attached workspace record', async () => {
+  const h = setup();
+  act(() => h.result.current.setRecords([{ id: 'workspace-circle', name: 'circle', sequence: 'GTAACCATGAAAGGG', isCircular: true, features: [] }]));
+  const pending = h.result.current.requestBio({
+    type: 'PARSE_ANNOTATIONS', filename: 'circle.gff3', idMap: { circle: 'workspace-circle' },
+    content: [
+      'circle\t.\tregion\t1\t15\t.\t+\t.\tgbkey=Src;Is_circular=true',
+      'circle\t.\tCDS\t7\t12\t.\t+\t0\tID=c',
+      'circle\t.\tCDS\t2\t4\t.\t+\t0\tID=c',
+    ].join('\n'),
+  });
+  await act(async () => {
+    h.worker.release(h.worker.requests.length - 1);
+    await pending;
+  });
+  expect(h.result.current.records[0].features.filter(feature => feature.type === 'CDS')).toHaveLength(1);
+  expect(h.log).toHaveBeenCalledWith(expect.stringMatching(/^WARNING: workspace-circle: c: .*coordinate order/));
+});
+
 describe('session-type refusals', () => {
   const peptideGenBank = 'LOCUS       P1                         4 aa            linear   PRI 01-JAN-2020\nORIGIN\n        1 meep\n//\n';
   const dnaGenBank = 'LOCUS       D1 4 bp DNA linear\nORIGIN\n        1 acgt\n//\n';

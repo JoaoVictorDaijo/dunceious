@@ -20,6 +20,7 @@
 
 import { readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
+import { exportToGff3, parseGFF3 } from '@/src/core/formats/gff3';
 import { parseGenBank } from '@/src/core/genbank';
 import { extractCodingSequence, translateSequence } from '@/src/domain/bio/sequence';
 import { conceptualTranslation } from '@/src/domain/bio/translation';
@@ -91,6 +92,7 @@ it.each([
   { reference: 'phiX174', order: 'original' },
   { reference: 'chloroplast', order: 'original' },
   { reference: 'chloroplast', order: 'reverse features' },
+  { reference: 'chloroplast', order: 'sort by start' },
 ] as const)('matches GenBank translations for $reference in $order order', ({ reference, order }) => {
   const { gff, genBank, proteins } = references[reference];
   const genBankText = read(genBank);
@@ -100,7 +102,7 @@ it.each([
   const landmark = { ...oracle, id: accession };
   const original = read(fixtureDirectory + gff);
   const content = order === 'original' ? original : reordered(original, order);
-  const { next: [record] } = attach(landmark, content);
+  const { next: [record], warnings } = attach(landmark, content);
   const baseline = order === 'original' ? undefined : attach(landmark, original).next[0];
 
   for (const id of proteins) {
@@ -108,6 +110,9 @@ it.each([
     expect(expected, id).toBeTruthy();
     const actual = record.features.find(feature => feature.metadata?.ID === 'cds-' + id)!;
     expect(actual, id).toBeDefined();
+    if (reference === 'chloroplast') {
+      expect.soft(warnings.filter(warning => warning.includes(id)), id).toEqual([]);
+    }
     const translation = conceptualTranslation(actual, record);
     expect.soft(translation.status === 'ok' ? translation.residues : translation.reason, id).toBe(expected);
     if (baseline) {
@@ -117,6 +122,39 @@ it.each([
         .toBe(extractCodingSequence(same, baseline.sequence).codingSeq);
     }
   }
+});
+
+function mixedStrandRps12Rows() {
+  return read(fixtureDirectory + references.chloroplast.gff).split('\n')
+    .filter(row => row.includes('\tID=cds-NP_051038.1;'));
+}
+
+it('warns when reversed rps12 rows without ranks are read in mixed-strand file order', () => {
+  const content = mixedStrandRps12Rows().reverse().map(row => row.replace(/;part=\d+/, '')).join('\n');
+  const { records: [landmark] } = parseGenBank(read(references.chloroplast.genBank));
+  const { next: [record], warnings } = attach({ ...landmark, id: 'NC_000932.1' }, content);
+  expect.soft(record.features[0].segments).toEqual([
+    { start: 140624, end: 140650, strand: 1 },
+    { start: 139855, end: 140087, strand: 1 },
+    { start: 69610, end: 69724, strand: -1 },
+  ]);
+  expect(warnings).toEqual([expect.stringMatching(/NP_051038\.1.*mixed.strand.*taken from the file/i)]);
+});
+
+it('consumes rps12 ranks on import and omits them from every exported row', () => {
+  const { records: [landmark] } = parseGenBank(read(references.chloroplast.genBank));
+  const { next: [record] } = attach({ ...landmark, id: 'NC_000932.1' }, mixedStrandRps12Rows().join('\n'));
+  expect.soft(record.features[0].metadata).not.toHaveProperty('part');
+  const rows = exportToGff3([record]).text.split('\n').filter(row => row.split('\t')[2] === 'CDS');
+  expect(rows).toHaveLength(3);
+  expect(rows.map(row => row.split('\t')[8].match(/(?:^|;)part=[^;]*/g) ?? [])).toEqual([[], [], []]);
+});
+
+it('omits a stored rank when exporting a feature from an older project', () => {
+  const { records: [landmark] } = parseGenBank(read(references.chloroplast.genBank));
+  const { next: [record] } = attach({ ...landmark, id: 'NC_000932.1' }, mixedStrandRps12Rows().join('\n'));
+  record.features[0].metadata!.part = '1';
+  expect(exportToGff3([record]).text).not.toMatch(/[\t;]part=/);
 });
 
 it.each([true, false])('reports in-bounds circular end rows with landmark declaration=%s', declared => {
@@ -154,6 +192,78 @@ it('uses coordinate order for a descending plus-strand group without ranks', () 
   expect(warnings).toEqual([]);
 });
 
+it('reports coordinate reordering for in-bounds plus rows on a circular landmark', () => {
+  const { protein, warnings } = attachCds('GTAACCATGAAAGGG', [
+    '7\t12\t.\t+\t0\tID=c',
+    '2\t4\t.\t+\t0\tID=c',
+  ], true);
+  expect.soft(protein).toBe('*MK');
+  expect(warnings).toEqual([expect.stringMatching(/workspace-record.*\bc\b.*coordinate order.*origin/i)]);
+});
+
+it.each([false, true])('compares the documented circular minus CDS shape with descending rows=%s', descending => {
+  const first = 'NC_004367.1\tRefSeq\tCDS\t959\t966\t.\t-\t0\tID=cds0;Parent=rna0';
+  const second = 'NC_004367.1\tRefSeq\tCDS\t140247\t140485\t.\t-\t1\tID=cds0;Parent=rna0';
+  const { features, notices } = parseGFF3([
+    '##sequence-region NC_004367.1 1 149696',
+    'NC_004367.1\tRefSeq\tregion\t1\t149696\t.\t+\t.\tID=landmark;gbkey=Src;Is_circular=true',
+    'NC_004367.1\tRefSeq\tgene\t138637\t150662\t.\t-\t.\tID=gene0',
+    'NC_004367.1\tRefSeq\tmRNA\t138637\t150662\t.\t-\t.\tID=rna0;Parent=gene0',
+    ...(descending ? [second, first] : [first, second]),
+  ].join('\n'));
+  const cds = features['NC_004367.1'].find(feature => feature.type === 'CDS');
+  expect.soft(cds).toMatchObject({
+    strand: -1,
+    segments: [{ start: 958, end: 966 }, { start: 140246, end: 140485 }],
+    metadata: { codon_start: '2' },
+  });
+  expect(notices?.['NC_004367.1'] ?? []).toEqual(descending ? [] : [
+    { message: expect.stringMatching(/cds0.*coordinate order.*origin/i) },
+  ]);
+});
+
+it('uses NCBI part ranks with row totals to override coordinate order', () => {
+  const { protein, warnings } = attachCds('AAATAAATGAAA', [
+    '7\t12\t.\t+\t0\tID=t;part=1/2',
+    '1\t6\t.\t+\t0\tID=t;part=2/2',
+  ]);
+  expect.soft(protein).toBe('MKK*');
+  expect(warnings).toEqual([]);
+});
+
+it('uses three ranks with and without row totals on a gene', () => {
+  const { features, notices } = parseGFF3([
+    's\t.\tgene\t2\t4\t.\t+\t.\tID=g;part=3/3',
+    's\t.\tgene\t5\t7\t.\t+\t.\tID=g;part=2',
+    's\t.\tgene\t8\t10\t.\t+\t.\tID=g;part=1/3',
+  ].join('\n'));
+  expect.soft(features.s[0].segments).toEqual([
+    { start: 7, end: 10 }, { start: 4, end: 7 }, { start: 1, end: 4 },
+  ]);
+  expect(notices).toBeUndefined();
+});
+
+it.each([
+  { name: 'a gap', parts: [';part=1', ';part=3'] },
+  { name: 'duplicate ranks', parts: [';part=1/2', ';part=1/2'] },
+  { name: 'a non-numeric rank', parts: [';part=first', ';part=2/2'] },
+  { name: 'one incorrect total', parts: [';part=1/2', ';part=2/3'] },
+  { name: 'a missing rank', parts: ['', ';part=2/2'] },
+])('ignores ranks and warns for $name on monotonic rows', ({ parts }) => {
+  const { protein, warnings } = attachCds('AAATAAATGAAA', [
+    '7\t12\t.\t+\t0\tID=t' + parts[0],
+    '1\t6\t.\t+\t0\tID=t' + parts[1],
+  ]);
+  expect.soft(protein).toBe('K*MK');
+  expect(warnings).toEqual([expect.stringMatching(/workspace-record.*\bt\b.*part.*ranks.*ignored/i)]);
+});
+
+it('warns if a single row claims a larger ranked group', () => {
+  const { protein, warnings } = attachCds('ATGAAA', ['1\t6\t.\t+\t0\tID=t;part=1/2']);
+  expect.soft(protein).toBe('MK');
+  expect(warnings).toEqual([expect.stringMatching(/workspace-record.*\bt\b.*part.*ranks.*ignored/i)]);
+});
+
 it.each([
   ['unranked', ['', '', '']],
   ['incomplete', [';part=3', '', ';part=1']],
@@ -165,7 +275,10 @@ it.each([
     '4\t6\t.\t-\t0\tID=splice' + ranks[2],
   ]);
   expect.soft(protein).toBe('M*K');
-  expect(warnings).toEqual([expect.stringMatching(/workspace-record.*splice.*row order.*taken from the file/i)]);
+  expect(warnings).toEqual([
+    ...(ranks.some(Boolean) ? [expect.stringMatching(/workspace-record.*splice.*part.*ranks.*ignored/i)] : []),
+    expect.stringMatching(/workspace-record.*splice.*row order.*taken from the file/i),
+  ]);
 });
 
 it.each([

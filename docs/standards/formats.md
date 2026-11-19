@@ -330,10 +330,10 @@ not a prescribed algorithm. Display frames remain OP-8; biological order remains
 INSDC defines the initial coding offset. The T4, 13a, phiX174 and Arabidopsis chloroplast CDS tests compare imported products
 with GenBank translations. NCBI annotwriter writes ordinary CDS rows in strand-relative
 coordinate order and writes trans-spliced rps12 rows in evaluation order with `part=N`.
-NCBI also documents a proposed `part=X/Y` spelling. The import precedence below uses
-the integer spelling observed in the annotwriter fixtures.
+NCBI documents `part=X/Y` as a proposed attribute for joining rows, where X is the rank
+and Y is the total number of rows.
 [NCBI fixtures](../../src/core/formats/__tests__/fixtures/ncbi-gff3/PROVENANCE.md)
-· [NCBI GFF3 documentation](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/).
+· [NCBI GFF3 unofficial attributes](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/#unofficial-attributes).
 
 **Applications.** Unknown for arbitrary/mixed-strand/slippage phase policies across applications.
 
@@ -343,18 +343,22 @@ unspecified. Dunceious groups by landmark and ID and uses this precedence.
 
 1. Private Dunceious ordering attributes take precedence when they validate and agree on every row.
    Invalid or inconsistent attributes are ignored with a notice naming the feature.
-2. A complete set of distinct integer `part=N` ranks from 1 through the row count supplies
-   evaluation order, with each row read on its own strand.
+2. A complete set of distinct integer ranks from 1 through the row count supplies evaluation
+   order for any feature type, with each row read on its own strand. Both `part=X` and
+   `part=X/Y` are accepted. Every Y supplied must equal the row count. If ranks are present
+   and unusable, import reports that it ignored them and continues to the next rule.
+   Import consumes `part` and export omits it.
 3. Same-strand groups already monotonic by start and end in either direction use ascending
-   coordinates on plus and descending coordinates on minus. On circular landmarks the
-   comparison uses the coordinates as written, including extended ends. GFF3 extends the
-   end of the crossing row and gives no rule for moving another row to a different lap.
-   A change from file order is reported when the group has both extended and in-bounds rows.
-4. Other same-strand groups use file order, following annotwriter's evaluation-order practice.
-   A notice names the feature and states that file order was used for the ambiguous group.
+   coordinates on plus and descending coordinates on minus. For landmarks declared circular
+   in the GFF3, the comparison uses the coordinates as written, including extended ends, and
+   import reports any change from file order. NCBI extends the end of each row that spans the
+   origin. An extended parent can have children with in-bounds rows on both sides of the
+   origin, and GFF3 supplies no evaluation order for these rows.
+   [NCBI GFF3 origin-spanning features](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/reference-docs/file-formats/annotation-files/about-ncbi-gff3/#origin-spanning-features).
+4. Non-monotonic and mixed-strand groups use file order and retain each row's strand. A notice
+   names the feature and states that file order was used.
 
-Mixed-strand groups without valid private order or complete ranks retain file order with
-per-row strands. The phase stays with its row, including across a programmed frameshift overlap.
+The phase stays with its row, including across a programmed frameshift overlap.
 The first row in evaluation order supplies `codon_start` from its strand-relative 5′ phase
 even when that row is split at the origin.
 

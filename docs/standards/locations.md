@@ -25,11 +25,10 @@ Neither documents literal `join` parsing or arbitrary interval order.
 **Dunceious.** Conforms in `extractFeatureSequence` (`src/domain/bio/sequence.ts:166`), which
 the CDS track and the details window share, including out-of-order trans-spliced joins. Display and GenBank export share `formatInsdcLocation`; extraction and transposition share
 `featureParts`, preserving stored order and splitting explicit circular wraps. GFF3 import
-uses consistent, valid private Dunceious ordering attributes first, then complete integer
-NCBI annotwriter `part=N` ranks, then strand-relative coordinates for monotonic same-strand
-groups, and finally file order for non-monotonic same-strand groups. The importer reports
-invalid private attributes and ambiguous file order. Unranked mixed-strand groups keep
-their file order and per-row strands. GFF3 1.26 groups rows by ID and leaves row order
+uses consistent, valid private Dunceious ordering attributes first, then complete NCBI
+`part` ranks, then strand-relative coordinates for monotonic same-strand groups. Other
+groups retain file order and per-row strands. Import reports invalid private attributes,
+unusable ranks and fallback to file order. GFF3 1.26 groups rows by ID and leaves row order
 unspecified. The phase and a description of the ordering evidence are in the format rule.
 [Feature sequence](#loc-7-the-sequence-of-a-multi-interval-feature)
 · [GFF3 CDS phase and row order](formats.md#fmt-11-strand-relative-gff3-cds-phase).
@@ -201,9 +200,8 @@ features contribute both origin-side pieces in written order when the record len
 GFF3 export writes a contiguous crossing as one row with the landmark length added to the end.
 Import compares unrolled row coordinates when the coordinate-order rule applies, then
 splits the extended row into two origin-side intervals for evaluation. When that rule changes
-the file order of a group with extended and in-bounds rows, attachment reports the choice.
-GFF3 1.26 extends the crossing row's end and leaves the other rows in the coordinate system
-of the landmark. Attachment reports separate in-bounds rows that reach both ends of a
+file order on a landmark declared circular in the GFF3, attachment reports the choice.
+Attachment also reports separate in-bounds rows that reach both ends of a
 circular record when no row is extended. Older Dunceious exports used that shape for some
 continuous crossings. Interpreting those rows as separate intervals can change the feature's
 sequence and translation.
