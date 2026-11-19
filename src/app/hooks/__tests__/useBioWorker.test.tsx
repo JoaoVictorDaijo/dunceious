@@ -349,3 +349,38 @@ it('logs a source bound that cannot be kept while accepting its GFF3 attachment'
   expect(await pending).toMatchObject({ type: 'ANNOTATIONS_SUCCESS' });
   expect(h.log).toHaveBeenCalledWith('WARNING: x: Open source region end at base 12 could not be kept because no source interval ends there.');
 });
+
+describe('session-type refusals', () => {
+  const peptideGenBank = 'LOCUS       P1                         4 aa            linear   PRI 01-JAN-2020\nORIGIN\n        1 meep\n//\n';
+  const dnaGenBank = 'LOCUS       D1 4 bp DNA linear\nORIGIN\n        1 acgt\n//\n';
+
+  it.each([
+    ['a peptide file in a nucleotide workspace', peptideGenBank, [original], { P1: null }, 'category-mismatch', /contains protein records/],
+    ['a mixed file in an empty workspace', dnaGenBank + peptideGenBank, [], { D1: null, P1: null }, 'molecule-mixture', /mixes protein and nucleotide/],
+  ] as const)('refuses GenBank %s, blocks its IDs, and keeps diagnostics until dismissed', async (_case, content, before, idMap, code, message) => {
+    const h = gated();
+    act(() => h.result.current.setRecords([...before]));
+    const { promise, index } = h.send(content, 'in.gb', true);
+    act(() => h.worker.release(index));
+    await expect(promise).resolves.toMatchObject({ type: 'PARSE_REFUSED', idMap });
+    expect(h.result.current.records).toEqual(before);
+    expect(h.mismatch).not.toHaveBeenCalled();
+    expect(h.result.current.genBankRefusals).toEqual([expect.objectContaining({ filename: 'in.gb', findings: [
+      expect.objectContaining({ code, message: expect.stringMatching(message) }),
+    ] })]);
+    act(() => h.result.current.dismissGenBankRefusals());
+    expect(h.result.current.genBankRefusals).toEqual([]);
+  });
+
+  it('fails a mixed FASTA request and reports its mismatch without offering gap removal', async () => {
+    const h = gated();
+    act(() => h.result.current.setRecords([original]));
+    const { promise, index } = h.send('>d\nAC--GT\n>p\nMEEPQ\n', 'mixed.fa');
+    const rejection = expect(promise).rejects.toThrow('mixed.fa was not loaded.');
+    act(() => h.worker.release(index));
+    await rejection;
+    expect(h.result.current.records).toEqual([original]);
+    expect(h.result.current.pendingConfirmations).toHaveLength(0);
+    expect(h.mismatch).toHaveBeenCalledWith({ incoming: 'mixed', loaded: 'nucleotide', fileName: 'mixed.fa' });
+  });
+});

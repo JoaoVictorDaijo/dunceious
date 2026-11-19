@@ -71,10 +71,12 @@ it('does not queue a slow gapped picker response or read after workspace replace
   const h = setup();
   act(() => h.result.current.files.handleFileUpload(event(['fast.fa', 'response.fa', 'read.fa'])));
   await act(async () => { h.reads.get('fast.fa')!('>fast\nACGT'); h.reads.get('response.fa')!('>old\nAC--GT'); });
-  act(() => h.worker.release(0));
+  await act(async () => h.worker.release(0));
+  const responseIndex = h.worker.requests.findIndex(r => r.type === 'PARSE_FASTA' && r.filename === 'response.fa');
+  expect(responseIndex).toBeGreaterThanOrEqual(0);
   h.replace();
   act(() => h.result.current.bio.setRecords([]));
-  act(() => h.worker.release(1));
+  await act(async () => h.worker.release(responseIndex));
   await act(async () => h.reads.get('read.fa')!('>old2\nAC--GT'));
   expect(h.result.current.bio.pendingConfirmations).toEqual([]);
   expect(h.result.current.bio.records).toEqual([]);
@@ -99,7 +101,44 @@ it('keeps both gap-free picker files in the same workspace', async () => {
   const h = setup();
   act(() => h.result.current.files.handleFileUpload(event(['a.fa', 'b.fa'])));
   await act(async () => { h.reads.get('a.fa')!('>a\nACGT'); h.reads.get('b.fa')!('>b\nACTTGT'); });
-  act(() => { h.worker.release(0); h.worker.release(1); });
+  await act(async () => h.worker.release(0));
+  const index = h.worker.requests.findIndex(r => r.type === 'PARSE_FASTA' && r.filename === 'b.fa');
+  expect(index).toBeGreaterThanOrEqual(0);
+  await act(async () => h.worker.release(index));
   expect(h.result.current.bio.records.map(r => r.sequence)).toEqual(['ACGT', 'ACTTGT']);
   expect(h.result.current.bio.pendingConfirmations).toEqual([]);
+});
+
+
+it.each([true, false])('waits for the first picker gap decision before dispatching a later file, accept=%s', async accept => {
+  const h = setup();
+  act(() => h.result.current.files.handleFileUpload(event(['gapped.fa', 'protein.fa'])));
+  const sequenceRequests = () => h.worker.requests.filter(r => r.type === 'PARSE_FASTA');
+  await act(async () => h.reads.get('protein.fa')!('>p\nMEFW'));
+  expect(sequenceRequests()).toEqual([]);
+  await act(async () => h.reads.get('gapped.fa')!('>n\nAC..GT'));
+  await act(async () => h.worker.release(0));
+  expect(h.result.current.bio.records).toEqual([]);
+  expect(sequenceRequests().map(r => r.filename)).toEqual(['gapped.fa']);
+  const [notice] = h.result.current.bio.pendingConfirmations;
+  expect(notice).toMatchObject({ fileName: 'gapped.fa', records: [{ id: 'n', removed: 2 }] });
+  await act(async () => h.result.current.bio.confirmGapRemoval(notice.token, accept));
+  expect(sequenceRequests().map(r => r.filename)).toEqual(['gapped.fa', 'protein.fa']);
+  const second = h.worker.requests.indexOf(sequenceRequests()[1]);
+  await act(async () => h.worker.release(second));
+  expect(h.result.current.bio.records.map(r => [r.id, r.sequence])).toEqual(accept ? [['n', 'ACGT']] : [['p', 'MEFW']]);
+  expect(h.result.current.files.moleculeTypeMismatch).toEqual(accept
+    ? { incoming: 'protein', loaded: 'nucleotide', fileName: 'protein.fa' } : null);
+});
+
+it('uses the loaded peptide type for an exact-match alignment with alphabet-ambiguous residues', async () => {
+  const h = setup();
+  act(() => h.result.current.bio.setRecords([{ id: 'p', name: 'p', sequence: 'MAK', moleculeType: 'protein', features: [] }]));
+  act(() => h.result.current.files.handleAlignmentUpload(event(['aligned.fa'])));
+  await act(async () => h.reads.get('aligned.fa')!('>p\nM-AK'));
+  const index = h.worker.requests.findIndex(r => r.type === 'PARSE_FASTA');
+  expect(index).toBeGreaterThanOrEqual(0);
+  await act(async () => h.worker.release(index));
+  expect(h.result.current.bio.records[0]).toMatchObject({ sequence: 'MAK', alignedSequence: 'M-AK', moleculeType: 'protein' });
+  expect(h.result.current.files.moleculeTypeMismatch).toBeNull();
 });

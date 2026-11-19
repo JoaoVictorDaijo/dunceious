@@ -522,10 +522,13 @@ describe('FASTA loaded as sequences drops "-" gap characters (#267)', () => {
   };
 
   it('keeps residues, case, U and protein letters and reports each changed record', () => {
-    const result = applyFastaResponse([], parsed('>d\nac-gt\n>r\nAU--GC\n>p\nMU-OP\n>clean\nACGT\n'), false, 'gapped.fa');
-    expect(result.kind).toBe('batch');
-    expect(result.next.map(r => [r.id, r.sequence])).toEqual([['d', 'acgt'], ['r', 'AUGC'], ['p', 'MUOP'], ['clean', 'ACGT']]);
-    if (result.kind === 'batch') expect(result.gapsRemoved).toEqual([{ id: 'd', removed: 1 }, { id: 'r', removed: 2 }, { id: 'p', removed: 1 }]);
+    const nucleotide = applyFastaResponse([], parsed('>d\nac-gt\n>r\nAU--GC\n>clean\nACGT\n'), false, 'gapped.fa');
+    expect(nucleotide.kind).toBe('batch');
+    expect(nucleotide.next.map(r => [r.id, r.sequence])).toEqual([['d', 'acgt'], ['r', 'AUGC'], ['clean', 'ACGT']]);
+    if (nucleotide.kind === 'batch') expect(nucleotide.gapsRemoved).toEqual([{ id: 'd', removed: 1 }, { id: 'r', removed: 2 }]);
+    const peptide = applyFastaResponse([], parsed('>p\nMU-OP\n'), false, 'gapped.fa');
+    expect(peptide.next.map(r => [r.id, r.sequence])).toEqual([['p', 'MUOP']]);
+    if (peptide.kind === 'batch') expect(peptide.gapsRemoved).toEqual([{ id: 'p', removed: 1 }]);
   });
 
   it('sizes the source details from residues and reports the deduplicated workspace ID', () => {

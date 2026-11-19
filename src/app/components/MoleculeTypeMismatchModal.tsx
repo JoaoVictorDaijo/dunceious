@@ -19,10 +19,11 @@
  */
 
 import React from 'react';
+import type { SessionTypeConflict } from '@/src/domain/bio';
 
 export interface MoleculeTypeMismatchModalProps {
-  incoming: 'nucleotide' | 'protein';
-  loaded: 'nucleotide' | 'protein';
+  incoming: SessionTypeConflict['incoming'];
+  loaded: SessionTypeConflict['loaded'];
   fileName: string;
   onClose: () => void;
 }
@@ -33,7 +34,7 @@ const MoleculeTypeMismatchModal: React.FC<MoleculeTypeMismatchModalProps> = ({
   fileName,
   onClose,
 }) => {
-  const incomingLabel = incoming === 'protein' ? 'peptide' : 'nucleotide';
+  const incomingLabel = incoming === 'mixed' ? 'mixed nucleotide and peptide' : incoming === 'protein' ? 'peptide' : 'nucleotide';
   const loadedLabel = loaded === 'protein' ? 'peptide' : 'nucleotide';
 
   return (
@@ -73,9 +74,13 @@ const MoleculeTypeMismatchModal: React.FC<MoleculeTypeMismatchModalProps> = ({
               </div>
               <div className="flex-1 text-sm">
                 <p className="text-slate-300">
-                  <span className="text-slate-400">Workspace contains </span>
-                  <span className="font-bold text-rose-300">{loadedLabel}</span>
-                  <span className="text-slate-400"> sequences</span>
+                  {loaded ? (
+                    <>
+                      <span className="text-slate-400">Workspace contains </span>
+                      <span className="font-bold text-rose-300">{loadedLabel}</span>
+                      <span className="text-slate-400"> sequences</span>
+                    </>
+                  ) : <span className="text-slate-400">A workspace holds one molecule type at a time</span>}
                 </p>
               </div>
             </div>
@@ -84,7 +89,9 @@ const MoleculeTypeMismatchModal: React.FC<MoleculeTypeMismatchModalProps> = ({
           <div className="bg-slate-800/50 rounded-lg px-4 py-3 border border-slate-700/50 text-xs text-slate-300">
             <p className="flex items-start gap-2">
               <i className="fas fa-lightbulb text-amber-400 mt-0.5 shrink-0"></i>
-              <span><span className="font-bold">Solution:</span> Clear all records first to switch sequence types.</span>
+              <span><span className="font-bold">Solution:</span> {incoming === 'mixed'
+                ? 'Split the file so nucleotide and peptide records load into separate workspaces.'
+                : 'Clear all records first to switch sequence types.'}</span>
             </p>
           </div>
         </div>

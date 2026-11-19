@@ -20,12 +20,13 @@
 
 import { translationWarning } from '@/src/domain/bio/translation';
 import { refusedGenBankIds, importLog, type ImportDiagnosticFile } from '@/src/app/logic/genbankImport';
+import { sanitizeId } from '@/src/app/logic/idHelpers';
 import { unplacedSummary } from '@/src/domain/bio/quantitativeTracks';
 import { useState, useRef, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
-import { isProteinSession } from '@/src/domain/bio/sequence';
+import { findSessionTypeConflict, type MoleculeCategory, type SessionTypeConflict } from '@/src/domain/bio/sequence';
 import { SeqRecord } from '@/src/domain/bio/types';
-import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord, ParseFastaSuccessResponse } from '@/src/workers/protocol';
-import { applyParseSuccess, applyAnnotations, logAttachedTranslationWarning, applyFastaAndLog, remotePartsWarning, type GapRemoval } from '@/src/app/logic/bioResponse';
+import type { BioWorkerRequest, BioWorkerResponse, FastaAlignedRecord, ParseFastaSuccessResponse, ParseGenBankRefusedResponse, ParseGenBankSuccessResponse } from '@/src/workers/protocol';
+import { applyParseResponse, applyAnnotations, logAttachedTranslationWarning, applyFastaAndLog, MixedFastaError, remotePartsWarning, type GapRemoval } from '@/src/app/logic/bioResponse';
 
 /** A pending FASTA consent preview; token identifies one exactly-once choice. */
 export interface GapNotice { token: number; fileName: string; records: GapRemoval[] }
@@ -66,7 +67,7 @@ export interface UseBioWorkerReturn {
 export function useBioWorker(addLog: (msg: string) => void, options: {
   getWorkspaceRevision?: () => number;
   isAlignmentLocked?: () => boolean;
-  onMismatch?: (error: { incoming: 'nucleotide' | 'protein'; loaded: 'nucleotide' | 'protein'; fileName: string }) => void;
+  onMismatch?: (error: SessionTypeConflict & { fileName: string }) => void;
 } = {}): UseBioWorkerReturn {
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -125,16 +126,18 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
     });
   }, []);
 
+  const refusedFastaIds = (rows: FastaAlignedRecord[]) => Object.fromEntries(
+    rows.flatMap(({ id }) => [[id, null], [sanitizeId(id), null]]),
+  );
   const refuse = (msg: SequenceResponse, reason: string) => {
     addLog(`${msg.filename} was not loaded: ${reason}`);
-    const rows = msg.type === 'FASTA_SUCCESS' ? msg.alignedData : msg.records;
-    return { ...msg, idMap: msg.type === 'FASTA_SUCCESS' ? Object.fromEntries(rows.map(row => [row.id, null])) : refusedGenBankIds(msg.records) };
+    return { ...msg, idMap: msg.type === 'FASTA_SUCCESS' ? refusedFastaIds(msg.alignedData) : refusedGenBankIds(msg.records) };
   };
-  const settle = (msg: BioWorkerResponse, error?: string) => {
+  const settle = (msg: BioWorkerResponse, error?: string | Error) => {
     if (msg.requestId === undefined) return;
     const pending = pendingRequests.current.get(msg.requestId);
     pendingRequests.current.delete(msg.requestId);
-    if (error || msg.type === 'ERROR') pending?.reject(new Error(error ?? (msg.type === 'ERROR' ? msg.error : 'Import invalidated')));
+    if (error) pending?.reject(error instanceof Error ? error : new Error(error));
     else pending?.resolve(msg);
   };
   const invalidReason = (msg: SequenceResponse) => {
@@ -143,56 +146,78 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
       || msg.workspaceRevision !== undefined && msg.workspaceRevision !== optionsRef.current.getWorkspaceRevision?.()) return 'the workspace was replaced';
     return undefined;
   };
+  const reportGenBankRefusal = (
+    msg: ParseGenBankSuccessResponse | ParseGenBankRefusedResponse, categories: MoleculeCategory[], conflict: SessionTypeConflict | null,
+  ) => {
+    const findings = [...(msg.findings ?? [])];
+    if (conflict && !(conflict.incoming === 'mixed' && findings.some(finding => finding.code === 'molecule-mixture'))) {
+      const index = conflict.incoming === 'mixed' ? -1 : categories.indexOf(conflict.incoming);
+      findings.push({
+        tier: 'refuse', code: 'category-mismatch',
+        ...(index >= 0 && { record: { name: msg.records[index]?.id ?? msg.filename, index: index + 1 } }),
+        message: conflict.incoming === 'mixed'
+          ? 'This file mixes nucleotide and peptide records. A workspace holds one molecule type.'
+          : `This file contains ${conflict.incoming} records, but the session now holds ${conflict.loaded} sequences.`,
+      });
+    }
+    const file = { filename: msg.filename, findings };
+    setGenBankRefusals(previous => [...previous, file]);
+    addLog(importLog(file, true));
+    settle({ ...msg, type: 'PARSE_REFUSED', findings, categories, idMap: refusedGenBankIds(msg.records) });
+  };
+  const commitGenBank = (msg: ParseGenBankSuccessResponse | ParseGenBankRefusedResponse) => {
+    if (msg.type === 'PARSE_REFUSED') {
+      const categories = msg.categories.map(category => ({ moleculeType: category === 'protein' ? 'protein' as const : 'dna' as const }));
+      reportGenBankRefusal(msg, msg.categories, findSessionTypeConflict(recordsRef.current, categories));
+      return;
+    }
+
+    const result = applyParseResponse(recordsRef.current, msg.records, msg.filename);
+    if (result.kind === 'reject-session-type') {
+      reportGenBankRefusal(msg, msg.records.map(r => r.moleculeType === 'protein' ? 'protein' : 'nucleotide'), result.conflict);
+      return;
+    }
+
+    const assigned = result.next.slice(recordsRef.current.length).map(r => r.id);
+    const findings = (msg.findings ?? []).map(f => f.code === 'duplicate-locus' && f.record
+      ? { ...f, message: `${f.record.name} was imported as ${assigned[f.record.index - 1]} because its LOCUS name is repeated.` } : f);
+    setRecords(result.next);
+    if (findings.length) {
+      const file = { filename: msg.filename, findings, recordIds: assigned };
+      setImportNotes(previous => [...previous, file]);
+      addLog(importLog(file, false));
+    }
+    addLog(`Batch ingestion complete: ${result.count} records added.`);
+    const exceptionWarning = translationWarning(msg.records, { includeMismatches: false });
+    if (exceptionWarning) addLog(exceptionWarning);
+    const remoteWarning = remotePartsWarning(msg.records);
+    if (remoteWarning) {
+      addLog(remoteWarning);
+      console.warn(remoteWarning);
+    }
+    settle({ ...msg, idMap: result.idMap });
+  };
   const commit = (msg: SequenceResponse) => {
     const invalid = invalidReason(msg);
     if (invalid) { addLog(`${msg.filename} was not loaded: ${invalid}`); settle(msg, invalid); return; }
     if (optionsRef.current.isAlignmentLocked?.()) { settle(refuse(msg, 'the workspace is locked')); return; }
-    const loaded = isProteinSession(recordsRef.current) ? 'protein' : 'nucleotide';
     if (msg.type !== 'FASTA_SUCCESS') {
-      const categories = msg.type === 'PARSE_REFUSED' ? msg.categories : msg.records.map(r => r.moleculeType === 'protein' ? 'protein' : 'nucleotide');
-      const mismatches = recordsRef.current.length ? [...new Set(categories.filter(category => category !== loaded))] : [];
-      const findings = [...(msg.findings ?? []), ...mismatches.map(category => ({
-        tier: 'refuse' as const, code: 'category-mismatch', record: { name: msg.records[0]?.id ?? msg.filename, index: 1 },
-        message: `This file contains ${category} records, but the session now holds ${loaded} sequences.`,
-      }))];
-      if (msg.type === 'PARSE_REFUSED' || mismatches.length) {
-        const file = { filename: msg.filename, findings };
-        setGenBankRefusals(previous => [...previous, file]);
-        addLog(importLog(file, true));
-        settle({ ...msg, type: 'PARSE_REFUSED', findings, categories, idMap: refusedGenBankIds(msg.records) });
-        return;
-      }
-    } else if (recordsRef.current.length && msg.incomingCategory && msg.incomingCategory !== loaded) {
-      optionsRef.current.onMismatch?.({ incoming: msg.incomingCategory, loaded, fileName: msg.filename });
-      settle(refuse(msg, `the session now holds ${loaded} sequences`));
+      commitGenBank(msg);
       return;
     }
-    if (msg.type === 'PARSE_SUCCESS') {
-      const result = applyParseSuccess(recordsRef.current, msg.records, msg.filename);
-      const assigned = result.next.slice(recordsRef.current.length).map(r => r.id);
-      const findings = (msg.findings ?? []).map(f => f.code === 'duplicate-locus' && f.record
-        ? { ...f, message: `${f.record.name} was imported as ${assigned[f.record.index - 1]} because its LOCUS name is repeated.` } : f);
-      setRecords(result.next);
-      if (findings.length) {
-        const file = { filename: msg.filename, findings, recordIds: assigned };
-        setImportNotes(previous => [...previous, file]);
-        addLog(importLog(file, false));
+
+    const result = applyFastaAndLog(recordsRef.current, msg.alignedData, msg.asAlignment, addLog, msg.filename);
+    if (result.kind === 'reject-session-type') {
+      optionsRef.current.onMismatch?.({ ...result.conflict, fileName: msg.filename });
+      if (result.conflict.incoming === 'mixed') {
+        settle(msg, new MixedFastaError(msg.filename, refusedFastaIds(msg.alignedData)));
+        return;
       }
-      addLog(`Batch ingestion complete: ${result.count} records added.`);
-      const exceptionWarning = translationWarning(msg.records, { includeMismatches: false });
-      if (exceptionWarning) addLog(exceptionWarning);
-      const remoteWarning = remotePartsWarning(msg.records);
-      if (remoteWarning) {
-        addLog(remoteWarning);
-        console.warn(remoteWarning);
-      }
-      settle({ ...msg, idMap: result.idMap });
-    } else if (msg.type === 'FASTA_SUCCESS') {
-      const result = applyFastaAndLog(recordsRef.current, msg.alignedData, msg.asAlignment, addLog, msg.filename);
-      setRecords(result.next);
-      settle(result.kind === 'batch' || result.kind === 'aligned-load'
-        ? { ...msg, idMap: result.idMap } : result.kind === 'overlay' ? msg : refuse(msg, result.kind));
     }
+
+    setRecords(result.next);
+    settle(result.kind === 'batch' || result.kind === 'aligned-load'
+      ? { ...msg, idMap: result.idMap } : result.kind === 'overlay' ? msg : { ...msg, idMap: refusedFastaIds(msg.alignedData) });
   };
   const confirmGapRemoval = (token: number, load: boolean) => {
     const msg = queued.current.get(token);
@@ -218,8 +243,10 @@ export function useBioWorker(addLog: (msg: string) => void, options: {
       addLog(`${msg.filename} was not loaded: ${invalid}`);
       settle(msg, invalid);
     } else if (msg.type === 'FASTA_SUCCESS' && !msg.asAlignment
+      && !optionsRef.current.isAlignmentLocked?.()
       && msg.alignedData.some(row => /[-.]/.test(row.sequence))
-      && msg.alignedData.every(row => row.sequence.replace(/[-.]/g, '').length > 0)) {
+      && msg.alignedData.every(row => row.sequence.replace(/[-.]/g, '').length > 0)
+      && !findSessionTypeConflict(recordsRef.current, msg.alignedData)) {
       const token = ++confirmationCounter.current;
       queued.current.set(token, msg);
       setPendingConfirmations(previous => [...previous, { token, fileName: msg.filename,
