@@ -20,8 +20,9 @@
 
 import { Dispatch, SetStateAction, useState, useRef } from 'react';
 import { SeqRecord, SelectionArea } from '@/src/domain/bio/types';
+import { MixedFastaError } from '@/src/app/logic/bioResponse';
 import { describeSelectionLoss } from '@/src/core/exportReport';
-import { detectMoleculeType, getOriginalPos, isProteinSession, sliceRecordsBySelection } from '@/src/domain/bio';
+import { getOriginalPos, sliceRecordsBySelection, type SessionTypeConflict } from '@/src/domain/bio';
 import { serializeExport, EXPORT_EXTENSION, type HubExportFormat, type ExportOptions } from '@/src/app/logic/exportPlan';
 import { exportToFasta } from '@/src/core/formats/fasta';
 import { downloadBlob } from '@/src/app/lib/download';
@@ -31,44 +32,6 @@ import { parseProject, serializeProject } from '@/src/app/logic/projectFile';
 import { DEFAULT_ALIGNMENT_COMPARISON, type AlignmentComparisonSettings } from '@/src/app/logic/alignmentComparison';
 import { routeDroppedFiles, importDroppedBatch } from '@/src/app/logic/dropRouting';
 import type { BioWorkerRequest, BioWorkerResponse } from '@/src/workers/protocol';
-
-const FASTA_SAMPLE_MAX_RECORDS = 3;
-const FASTA_SAMPLE_MAX_LENGTH = 1200;
-
-/**
- * Samples the first few records of a FASTA string and classifies the sample
- * via the canonical `detectMoleculeType` (protein-only alphabet =
- * PROTEIN_ONLY_RESIDUES). RNA maps to 'nucleotide'.
- */
-function sniffFastaCategory(content: string): 'nucleotide' | 'protein' {
-  const lines = content.split('\n');
-  let seq = '';
-  let seenHeader = false;
-  let sampledRecords = 0;
-  for (const line of lines) {
-    const t = line.trim();
-    if (t.startsWith('>')) {
-      if (seenHeader && seq) {
-        sampledRecords += 1;
-        if (sampledRecords >= FASTA_SAMPLE_MAX_RECORDS || seq.length >= FASTA_SAMPLE_MAX_LENGTH) break;
-      }
-      seenHeader = true;
-      continue;
-    } else if (seenHeader && t) {
-      seq += t;
-      if (seq.length >= FASTA_SAMPLE_MAX_LENGTH) break;
-    }
-  }
-
-  const sample = seq.toUpperCase().replace(/[^A-Z*-]/g, '');
-  if (!sample) return 'nucleotide';
-  return detectMoleculeType(sample) === 'protein' ? 'protein' : 'nucleotide';
-}
-
-/** Returns the effective category of the current session's records. */
-function getLoadedCategory(records: SeqRecord[]): 'nucleotide' | 'protein' {
-  return isProteinSession(records) ? 'protein' : 'nucleotide';
-}
 
 /** Subset of app state that the project-restore handler needs to write back. */
 export interface ProjectSetters {
@@ -83,9 +46,7 @@ export interface ProjectSetters {
   setIsProcessing: Dispatch<SetStateAction<boolean>>;
 }
 
-export interface MoleculeTypeMismatchError {
-  incoming: 'nucleotide' | 'protein';
-  loaded: 'nucleotide' | 'protein';
+interface MoleculeTypeMismatchError extends SessionTypeConflict {
   fileName: string;
 }
 
@@ -175,26 +136,42 @@ export function useFileHandlers(
     setIsProcessing(true);
     const revision = getRevision();
     addLog(`Ingesting batch: ${files.length} file(s).`);
-    files.forEach(file =>
-      dispatchFile(file, content => {
-        if (isAlignmentLocked()) { setIsProcessing(false); return null; }
-        const isFasta = content.trimStart().startsWith('>');
-        if (getRevision() !== revision) { addLog(`${file.name} was not loaded: the workspace was replaced`); setIsProcessing(false); return null; }
-        if (isFasta && records.length > 0) {
-          const incoming = sniffFastaCategory(content);
-          const loaded = getLoadedCategory(records);
-          if (incoming !== loaded) {
-            setMoleculeTypeMismatch({ incoming, loaded, fileName: file.name });
-            addLog(
-              `Cannot load ${incoming === 'protein' ? 'peptide' : 'nucleotide'} file "${file.name}": session contains ${loaded === 'protein' ? 'peptide' : 'nucleotide'} sequences.`,
-            );
-            setIsProcessing(false);
-            return null;
+    const reads = files.map(async file => {
+      try { return { file, content: await workerDeps.readText(file) }; }
+      catch (error) { return { file, error }; }
+    });
+    void (async () => {
+      for (const read of reads) {
+        const result = await read;
+        const { file } = result;
+        if ('error' in result) {
+          addLog(`Could not read "${file.name}": ${result.error instanceof Error ? result.error.message : String(result.error)}`);
+          continue;
+        }
+        if (getRevision() !== revision) {
+          addLog(`${file.name} was not loaded: the workspace was replaced`);
+          continue;
+        }
+        if (isAlignmentLocked()) {
+          addLog(`${file.name} was not loaded: the workspace is locked`);
+          continue;
+        }
+        const { content } = result;
+        try {
+          if (!dropImport) throw new Error('The processing worker is unavailable.');
+          setIsProcessing(true);
+          await dropImport.requestBio({
+            type: content.trimStart().startsWith('>') ? 'PARSE_FASTA' : 'PARSE_GENBANK',
+            filename: file.name, content, workspaceRevision: revision,
+          });
+        } catch (error) {
+          if (!(error instanceof MixedFastaError) && getRevision() === revision) {
+            addLog(`Cannot process "${file.name}": ${error instanceof Error ? error.message : String(error)}`);
           }
         }
-        return isFasta ? { type: 'PARSE_FASTA', filename: file.name, content, workspaceRevision: revision, incomingCategory: sniffFastaCategory(content) } : { type: 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision };
-      }, workerDeps),
-    );
+      }
+      setIsProcessing(false);
+    })();
   };
 
   const handleAlignmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -207,17 +184,7 @@ export function useFileHandlers(
     dispatchFile(file, content => {
       if (isAlignmentLocked()) { setIsProcessing(false); return null; }
       if (getRevision() !== revision) { addLog(`${file.name} was not loaded: the workspace was replaced`); setIsProcessing(false); return null; }
-      const incoming = sniffFastaCategory(content);
-      const loaded = getLoadedCategory(records);
-      if (records.length > 0 && incoming !== loaded) {
-        setMoleculeTypeMismatch({ incoming, loaded, fileName: file.name });
-        addLog(
-          `Cannot import ${incoming === 'protein' ? 'peptide' : 'nucleotide'} alignment "${file.name}": session contains ${loaded === 'protein' ? 'peptide' : 'nucleotide'} sequences.`,
-        );
-        setIsProcessing(false);
-        return null;
-      }
-      return { type: 'PARSE_FASTA', filename: file.name, content, asAlignment: true, workspaceRevision: revision, incomingCategory: incoming };
+      return { type: 'PARSE_FASTA', filename: file.name, content, asAlignment: true, workspaceRevision: revision };
     }, workerDeps);
   };
 
@@ -315,11 +282,16 @@ export function useFileHandlers(
           importSequence: async (file, content) => {
             checkWorkspace();
             const isFasta = ['fa', 'fasta'].includes(file.name.split('.').pop()!.toLowerCase());
-            const incoming = isFasta ? sniffFastaCategory(content) : undefined;
-            const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: incoming, ...(isFasta ? { asAlignment: false } : {}) });
-            if (response.type !== 'PARSE_SUCCESS' && response.type !== 'PARSE_REFUSED' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
-            if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
-            return response.idMap;
+            try {
+              const response = await request({ type: isFasta ? 'PARSE_FASTA' : 'PARSE_GENBANK', filename: file.name, content, workspaceRevision: revision, incomingCategory: undefined, ...(isFasta ? { asAlignment: false } : {}) });
+              if (response.type !== 'PARSE_SUCCESS' && response.type !== 'PARSE_REFUSED' && response.type !== 'FASTA_SUCCESS') throw new Error(`Unexpected sequence response for "${file.name}".`);
+              if (!response.idMap) throw new Error(`Missing workspace assignments for "${file.name}".`);
+              return response.idMap;
+            } catch (error) {
+              if (!(error instanceof MixedFastaError)) throw error;
+              checkWorkspace();
+              return error.idMap;
+            }
           },
           importAnnotations: async (file, content, idMap) => {
             const response = await request({ type: 'PARSE_ANNOTATIONS', filename: file.name, content, idMap });

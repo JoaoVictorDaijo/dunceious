@@ -20,7 +20,7 @@
 
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
-import { act, render, screen, fireEvent, within, waitFor, installCanvasRecorder, stubResizeObserver } from '@/src/app/testing/renderHarness';
+import { act, render, screen, fireEvent, within, installCanvasRecorder, stubResizeObserver } from '@/src/app/testing/renderHarness';
 import { createDeferredWorker } from '@/src/app/testing/deferredWorker';
 import { handleBioMessage } from '@/src/workers/handlers/bio';
 import App from '@/src/app/App';
@@ -38,32 +38,24 @@ function setup() {
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(700);
   const view = render(<App />);
   const worker = Worker.instances[0];
-  const release = async (filename: string) => {
-    const index = worker.requests.findIndex(r => 'filename' in r && r.filename === filename);
-    expect(index).toBeGreaterThanOrEqual(0);
-    await act(async () => worker.release(index));
+  const deliver = async (filename: string, content: string) => {
+    const type = filename.endsWith('.fa') ? 'PARSE_FASTA' : 'PARSE_GENBANK';
+    const data = handleBioMessage({ type, filename, content, workspaceRevision: 0 });
+    await act(async () => worker.onmessage?.(new MessageEvent('message', { data })));
   };
-  return { ...view, worker, release };
+  return { ...view, worker, deliver };
 }
 
 it.each(['gap-first', 'refusal-first'])('keeps one focus owner and explicit FASTA consent: %s', async order => {
   const h = setup();
-  const files = [
-    new File(['>gapped1\nAC--GT'], 'first.fa'),
-    new File(['>gapped2\nAC--GT'], 'second.fa'),
-    new File([malformed('bad')], 'bad.gb'),
-    new File([malformed('later')], 'later.gb'),
-  ];
-  fireEvent.change(h.container.querySelector<HTMLInputElement>('input[data-drop-input][multiple]')!, { target: { files } });
-  await waitFor(() => expect(h.worker.requests.filter(r => r.type === 'PARSE_FASTA' || r.type === 'PARSE_GENBANK')).toHaveLength(4));
   if (order === 'refusal-first') {
-    await h.release('bad.gb');
+    await h.deliver('bad.gb', malformed('bad'));
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' }));
   }
-  await h.release('first.fa');
-  await h.release('second.fa');
-  if (order === 'gap-first') await h.release('bad.gb');
-  await h.release('later.gb');
+  await h.deliver('first.fa', '>gapped1\nAC--GT');
+  await h.deliver('second.fa', '>gapped2\nAC--GT');
+  if (order === 'gap-first') await h.deliver('bad.gb', malformed('bad'));
+  await h.deliver('later.gb', malformed('later'));
 
   const gap = screen.getByRole('alertdialog', { name: 'Remove alignment gaps?' });
   expect(screen.getAllByRole('alertdialog')).toEqual([gap]);

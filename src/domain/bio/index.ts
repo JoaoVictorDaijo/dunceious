@@ -45,7 +45,9 @@ export {
   getOriginalPos,
   alignedToOriginalPositions,
   isProteinSession,
+  findSessionTypeConflict,
 } from './sequence';
+export type { MoleculeCategory, SessionTypeConflict } from './sequence';
 
 export { buildAlignedSegments as getNonGapSegments } from './coordinate';
 export type {

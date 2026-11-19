@@ -86,7 +86,8 @@ test('navigation, search, selection and metadata keep their inline-label spacing
     gap: input.getBoundingClientRect().top - input.previousElementSibling!.getBoundingClientRect().bottom,
     containerHeight: input.parentElement!.getBoundingClientRect().height,
   }));
-  expect(sliderGeometry).toEqual({ gap: 16, containerHeight: 120.5 });
+  // The identity formula moved from a caption into the label's tooltip, so the card holds only the header and slider.
+  expect(sliderGeometry).toEqual({ gap: 16, containerHeight: 75 });
   await page.getByRole('button', { name: 'IUPAC', exact: true }).click();
   await settled(page);
 
@@ -162,8 +163,7 @@ test('stack spacing preserves hidden siblings, explicit margins and component-ro
 test('the no-results SearchDetails component root keeps the stack gap', async ({ page }) => {
   await openWorkbench(page);
   await page.getByRole('button', { name: 'Fuzzy', exact: true }).click();
-  const ready = page.getByText('Local search ready', { exact: true });
-  await expect(ready).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Local', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Local', exact: true }).click();
   await page.getByText('Local options', { exact: true }).click();
   await page.getByRole('spinbutton', { name: 'Min identity', exact: true }).fill('100');

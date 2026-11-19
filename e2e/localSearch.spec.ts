@@ -72,7 +72,7 @@ test('Local search sends only enumerated static requests through search, Cancel 
   const { forbidden, requests } = await restrict(context);
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await load(page);
-  await expect(page.getByText('Local search ready', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Local', exact: true })).toBeEnabled();
   await page.screenshot({ path: `${shots}/switch.png` });
   await page.getByRole('button', { name: 'Local', exact: true }).click();
   await page.getByText('Local options', { exact: true }).click();
@@ -102,7 +102,7 @@ test('Local search sends only enumerated static requests through search, Cancel 
   await alignment.locator('summary').click();
   await page.getByText('Search details', { exact: true }).click();
   await page.locator('[data-search-details]').scrollIntoViewIfNeeded();
-  await expect(page.locator('[data-search-details]').getByText('Hits across 1 record.', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-search-details]').getByText('Streams searched', { exact: true })).toBeVisible();
   await page.screenshot({ path: `${shots}/search-details.png` });
   await start(page, genome.slice(0, 10000));
   await expect(page.getByRole('dialog', { name: 'Local search job monitor' })).toBeVisible();
@@ -120,7 +120,7 @@ test('Local search sends only enumerated static requests through search, Cancel 
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.locator('[data-sequence-search-section]').getByText('Search cancelled', { exact: true }).last()).toBeVisible();
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
-  await expect(page.getByText('Local search ready', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Local', exact: true })).toBeEnabled();
   expect(requests).toEqual(requestsBeforeCancel);
   await start(page, genome.slice(20000, 20030)); await done(page);
   expect(requests).toEqual(requestsBeforeCancel);
@@ -139,7 +139,7 @@ test('corrupt module fails visibly without any non-static request', async ({ pag
 test('searches, cancels and searches again offline after readiness', async ({ page, context }) => {
   const { forbidden, requests } = await restrict(context);
   await load(page);
-  await expect(page.getByText('Local search ready', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Local', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Local', exact: true }).click();
   await page.evaluate(() => document.fonts.ready);
   const requestsBeforeOffline = [...requests];
@@ -151,7 +151,7 @@ test('searches, cancels and searches again offline after readiness', async ({ pa
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.locator('[data-sequence-search-section]').getByText('Search cancelled', { exact: true }).last()).toBeVisible();
   await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
-  await expect(page.getByText('Local search ready', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Local', exact: true })).toBeEnabled();
   expect(requests).toEqual(requestsBeforeCancel);
   await start(page, genome.slice(20000, 20030)); await done(page);
   expect(requests).toEqual(requestsBeforeCancel);

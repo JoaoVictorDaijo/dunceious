@@ -49,9 +49,7 @@ sourced protein-format fallback before claiming GenPept conformance.
 
 ## OP-3. Mixed molecule types in a workspace
 
-**Rule.** **Owner decision open:** define whether nucleotide and protein records may coexist
-in a workspace and what evidence can justify refusing an import. No standard or documented
-practice was found for the exact restrictive any-protein session gate and preview policy.
+**Rule.** A Dunceious workspace holds one molecule category. Treat this as an application policy.
 
 **Reference tools.** The verified search of NCBI, EMBOSS and Biopython typing/alignment
 documentation did not establish this viewer-wide restriction.
@@ -62,14 +60,12 @@ permits nucleotide and protein sequences together; this does not establish that 
 mixed types belong in one biological alignment. Evidence-supported options are a mixed list
 with operation-specific type requirements, or an explicitly defined homogeneous viewer policy.
 
-**Dunceious.** Policy unestablished: `src/domain/bio/sequence.ts:471` classifies the session
-as protein if any record is protein; `src/app/hooks/useFileHandlers.ts:186` uses that category
-for import gating. Its FASTA preview (`useFileHandlers.ts:48`) appends complete sequence lines
-and checks the 1,200-character trigger after each append, so a long line can exceed it. On a
-subsequent header, its counter advances whenever a header was already seen and the cumulative
-sample is nonempty, stopping at three. The sample is not reset between records, so this is
-not reliably three nonempty records. Later unsampled records can escape classification.
-The preview and inference limitations also concern [#244](https://github.com/JoaoVictorDaijo/dunceious/issues/244).
+**Dunceious.** `findSessionTypeConflict` (`src/domain/bio/sequence.ts`) checks every parsed record of a
+sequence import against the live workspace and refuses a file that mixes categories or differs
+from a non-empty workspace. Classification is still alphabet-only for FASTA
+(`detectMoleculeType`), so a protein
+written only in nucleotide-overlapping letters is read as nucleotide. The inference limitation
+also concerns [#244](https://github.com/JoaoVictorDaijo/dunceious/issues/244).
 
 ## OP-4. Residues, alignment columns and boundaries
 

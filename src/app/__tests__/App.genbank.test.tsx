@@ -42,24 +42,28 @@ function setup() {
   const flush = () => act(() => worker.requests.forEach((request, index) => {
     if (request.type === 'PROCESS_RECORDS' && !processed.has(index)) { processed.add(index); worker.release(index); }
   }));
-  const pick = async (files: File[]) => {
-    fireEvent.change(view.container.querySelector<HTMLInputElement>('input[data-drop-input][multiple]')!, { target: { files } });
-    await waitFor(() => expect(files.every(file => worker.requests.some(r => r.type === 'PARSE_GENBANK' && r.filename === file.name))).toBe(true));
+  const pick = async (file: File) => {
+    fireEvent.change(view.container.querySelector<HTMLInputElement>('input[data-drop-input][multiple]')!, { target: { files: [file] } });
+    await waitFor(() => expect(worker.requests.some(r => r.type === 'PARSE_GENBANK' && r.filename === file.name)).toBe(true));
+  };
+  const deliver = async (filename: string, content: string) => {
+    const data = handleBioMessage({ type: 'PARSE_GENBANK', filename, content, workspaceRevision: 0 });
+    await act(async () => worker.onmessage?.(new MessageEvent('message', { data })));
   };
   const release = async (filename: string) => {
     const index = worker.requests.findIndex(r => r.type === 'PARSE_GENBANK' && r.filename === filename);
     await act(async () => worker.release(index)); flush();
   };
-  return { ...view, worker, pick, release, writeText, flush };
+  return { ...view, worker, pick, deliver, release, writeText, flush };
 }
 
 it.each([false, true])('shows one accumulated refusal dialog in arrival order with combined findings, reversed=%s', async reverse => {
-  const h = setup(); await h.pick([new File([gb('existing')], 'existing.gb')]); await h.release('existing.gb');
-  await h.pick([new File([gb('protein', 'MEF', 'aa')], 'protein.gb'), new File([gb('broken', 'ac-g')], 'broken.gb')]);
-  const order = reverse ? ['broken.gb', 'protein.gb'] : ['protein.gb', 'broken.gb'];
-  await h.release(order[0]);
+  const h = setup(); await h.pick(new File([gb('existing')], 'existing.gb')); await h.release('existing.gb');
+  const contents = { 'protein.gb': gb('protein', 'MEF', 'aa'), 'broken.gb': gb('broken', 'ac-g') };
+  const order = reverse ? ['broken.gb', 'protein.gb'] as const : ['protein.gb', 'broken.gb'] as const;
+  await h.deliver(order[0], contents[order[0]]);
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' }));
-  await h.release(order[1]);
+  await h.deliver(order[1], contents[order[1]]);
   const dialog = screen.getByRole('alertdialog', { name: "Can't open this GenBank file" });
   expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
   expect(within(dialog).getAllByRole('heading', { level: 3 }).map(e => e.textContent)).toEqual(order.map(file => `${file} wasn't loaded`));
@@ -79,7 +83,7 @@ it.each([false, true])('shows one accumulated refusal dialog in arrival order wi
 
 it('shows and copies an empty GenBank refusal without a record label', async () => {
   const h = setup();
-  await h.pick([new File([' \t\r\n'], 'empty.gb')]);
+  await h.pick(new File([' \t\r\n'], 'empty.gb'));
   await h.release('empty.gb');
   const dialog = screen.getByRole('alertdialog', { name: "Can't open this GenBank file" });
   expect(within(dialog).getByRole('listitem').textContent).toBe('No GenBank record found.');
@@ -88,7 +92,7 @@ it('shows and copies an empty GenBank refusal without a record label', async () 
 });
 
 it('opens the real status notes, expands and copies all seven, and clears without removing records', async () => {
-  const h = setup(); await h.pick([new File([sevenNotes], 'notes.gb')]); await h.release('notes.gb');
+  const h = setup(); await h.pick(new File([sevenNotes], 'notes.gb')); await h.release('notes.gb');
   const status = h.container.querySelector('.app-status')!;
   fireEvent.click(within(status as HTMLElement).getByRole('button', { name: '7 import notes' }));
   const notes = screen.getByRole('region', { name: 'Import notes' });
@@ -102,14 +106,14 @@ it('opens the real status notes, expands and copies all seven, and clears withou
   expect(screen.queryByRole('button', { name: /import notes/ })).toBeNull();
   expect(screen.queryByRole('region', { name: 'Import notes' })).toBeNull();
   expect(h.container.querySelector('[data-navigator-record="R"]')).not.toBeNull();
-  await h.pick([new File([sevenNotes], 'fresh-notes.gb')]); await h.release('fresh-notes.gb');
+  await h.pick(new File([sevenNotes], 'fresh-notes.gb')); await h.release('fresh-notes.gb');
   expect(screen.getByRole('button', { name: '7 import notes' })).toBeTruthy();
   expect(screen.queryByRole('region', { name: 'Import notes' })).toBeNull();
 });
 
 it('names assigned duplicate IDs and removes notes only when their actual record is removed', async () => {
-  const h = setup(); await h.pick([new File([gb('X')], 'existing.gb')]); await h.release('existing.gb');
-  await h.pick([new File([gb('X') + gb('X')], 'duplicates.gb')]); await h.release('duplicates.gb');
+  const h = setup(); await h.pick(new File([gb('X')], 'existing.gb')); await h.release('existing.gb');
+  await h.pick(new File([gb('X') + gb('X')], 'duplicates.gb')); await h.release('duplicates.gb');
   fireEvent.click(screen.getByRole('button', { name: '1 import notes' }));
   expect(screen.getByRole('region', { name: 'Import notes' }).textContent).toContain('X was imported as X_2');
   fireEvent.click(within(screen.getByRole('region', { name: 'Import notes' })).getByRole('button', { name: 'Close' }));
@@ -122,13 +126,14 @@ it('names assigned duplicate IDs and removes notes only when their actual record
 
 it('suppresses stale refusal and notes responses after the real workspace-clear flow', async () => {
   const h = setup();
-  await h.pick([new File([gb('fast')], 'fast.gb'), new File([gb('bad', 'acg')], 'stale-bad.gb'), new File([sevenNotes], 'stale-notes.gb')]);
+  await h.pick(new File([gb('fast')], 'fast.gb'));
   await h.release('fast.gb');
   vi.spyOn(window, 'prompt').mockReturnValue('CLEAR');
   fireEvent.click(screen.getByRole('button', { name: 'Project and options' }));
   fireEvent.click(screen.getByRole('button', { name: 'Clear workspace…' }));
   const close = screen.queryByRole('button', { name: 'Close options' }); if (close) fireEvent.click(close);
-  await h.release('stale-bad.gb'); await h.release('stale-notes.gb');
+  await h.deliver('stale-bad.gb', gb('bad', 'acg'));
+  await h.deliver('stale-notes.gb', sevenNotes);
   expect(screen.queryByRole('alertdialog')).toBeNull();
   expect(screen.queryByRole('button', { name: /import notes/ })).toBeNull();
   expect(h.container.querySelectorAll('[data-navigator-record]')).toHaveLength(0);

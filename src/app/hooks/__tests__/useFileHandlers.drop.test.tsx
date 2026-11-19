@@ -121,7 +121,7 @@ it('refuses a mixed molecule file at commit time and continues', async () => {
   expect(LocalWorker.instance.requests.filter(r => r.type === 'PARSE_FASTA')).toHaveLength(2);
   expect(result.current.bio.records.map(r => r.id)).toEqual(['a']);
   expect(result.current.handlers.moleculeTypeMismatch).toEqual({ incoming: 'protein', loaded: 'nucleotide', fileName: 'protein.fa' });
-  expect(log).toHaveBeenCalledWith('protein.fa was not loaded: the session now holds nucleotide sequences');
+  expect(log).toHaveBeenCalledWith('ERROR: protein.fa was not loaded: its peptide records do not match the nucleotide workspace.');
 });
 
 it('rejects a worker error and stops the batch before annotations', async () => {
@@ -342,4 +342,51 @@ it('lets the parser decide the category of a picker file named AA from its bp un
   await act(async () => worker.respond(request));
   expect(result.current.bio.records.map(r => r.id)).toEqual(['existing', 'AA']);
   expect(result.current.bio.genBankRefusals).toEqual([]);
+});
+
+it('blocks mixed FASTA aliases and attaches annotations only to an accepted sibling', async () => {
+  // Only the last record conflicts with the loaded type.
+  const mixed = '>d1\nACGT\n>d2\nACGT\n>d3\nACGT\n>p;1\nMEEPQSDPSV';
+  const annotations = ['d1', 'p;1', 'p_1', 'accepted'].map(id => `${id}\ts\tgene\t1\t2\t.\t+\t.\tName=${id.replace(';', '_')}`).join('\n');
+  const { result, log } = setup(async file => file.name === 'mixed.fa' ? mixed : file.name === 'accepted.fa' ? '>accepted\nACGT' : annotations);
+  const kept = ['d1', 'p_1'].map(id => ({ id, name: id, sequence: 'ACGT', moleculeType: 'dna' as const, features: [] }));
+  act(() => result.current.bio.setRecords(kept));
+  let pending!: Promise<void>;
+  await act(async () => { pending = result.current.handlers.handleDroppedFiles(['mixed.fa', 'accepted.fa', 'both.gff3'].map(name => new File([], name))); });
+  const worker = LocalWorker.instance;
+  const parse = worker.requests.find(r => r.type === 'PARSE_FASTA' && r.filename === 'mixed.fa')!;
+  await act(async () => worker.respond(parse));
+  expect(result.current.bio.records).toEqual(kept);
+  const accepted = worker.requests.find(r => r.type === 'PARSE_FASTA' && r.filename === 'accepted.fa')!;
+  await act(async () => worker.respond(accepted));
+  const attachment = worker.requests.find(r => r.type === 'PARSE_ANNOTATIONS')!;
+  expect(attachment.idMap).toMatchObject({ d1: null, 'p;1': null, p_1: null, accepted: 'accepted' });
+  await act(async () => { worker.respond(attachment); await pending; });
+  expect(result.current.bio.records.map(r => [r.id, r.features.map(feature => feature.name)])).toEqual([
+    ['d1', []], ['p_1', []], ['accepted', ['accepted']],
+  ]);
+  expect(result.current.handlers.moleculeTypeMismatch).toEqual({ incoming: 'mixed', loaded: 'nucleotide', fileName: 'mixed.fa' });
+  expect(log).toHaveBeenCalledWith('ERROR: mixed.fa was not loaded: it mixes nucleotide and peptide records, and a workspace holds one molecule type.');
+  act(() => result.current.handlers.closeMismatchModal());
+  expect(result.current.handlers.moleculeTypeMismatch).toBeNull();
+});
+
+it('loads picked files in selection order, so the first file sets the type of an empty workspace', async () => {
+  let finishDna!: (text: string) => void;
+  const dnaText = new Promise<string>(resolve => { finishDna = resolve; });
+  const { result } = setup(file => file.name === 'dna.fa' ? dnaText : Promise.resolve('>p0\nMEEPQSDPSV'));
+  const files = [new File([], 'dna.fa'), new File([], 'protein.fa')];
+  act(() => { result.current.handlers.handleFileUpload({ target: { files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>); });
+  // The protein file finishes reading first; it must still wait for the file selected before it.
+  await act(async () => { await Promise.resolve(); });
+  expect(LocalWorker.instance.requests).toEqual([]);
+  await act(async () => { finishDna('>d0\nACGT'); });
+  const worker = LocalWorker.instance;
+  const parseRequests = () => worker.requests.filter(r => r.type === 'PARSE_FASTA');
+  expect(parseRequests().map(r => r.filename)).toEqual(['dna.fa']);
+  await act(async () => worker.respond(parseRequests()[0]));
+  expect(parseRequests().map(r => r.filename)).toEqual(['dna.fa', 'protein.fa']);
+  await act(async () => worker.respond(parseRequests()[1]));
+  expect(result.current.bio.records.map(r => `${r.id}:${r.moleculeType}`)).toEqual(['d0:dna']);
+  expect(result.current.handlers.moleculeTypeMismatch).toEqual({ incoming: 'protein', loaded: 'nucleotide', fileName: 'protein.fa' });
 });
