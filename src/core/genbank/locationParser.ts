@@ -50,6 +50,7 @@
 import type { FeatureSegment, LocationOperator, RemotePart } from '@/src/domain/bio/types';
 import type { LocationRecord } from '@/src/domain/bio/featureParts';
 import { featureEnvelope } from '@/src/domain/bio/featureEnvelope';
+import { proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
 
 export interface LocationData {
   segments: FeatureSegment[];
@@ -137,14 +138,6 @@ function locationOperator(text: string): LocationOperator | undefined {
   const match = text.match(/^(complement|join|order)\((.*)\)$/);
   if (!match) return undefined;
   return match[1] === 'complement' ? locationOperator(match[2]) : match[1] as LocationOperator;
-}
-
-/** The NCBI flat-file formatter writes a second endpoint only when it is available. */
-export function proteinBondEndpoints(location: string): [number] | [number, number] | undefined {
-  const match = /^bond\((\d+)(?:,(\d+))?\)$/.exec(location);
-  if (!match) return undefined;
-  const first = Number(match[1]);
-  return match[2] === undefined ? [first] : [first, Number(match[2])];
 }
 
 export function parseLocation(loc: string, record?: LocationRecord, protein = false): LocationData {

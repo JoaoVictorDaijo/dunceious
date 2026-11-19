@@ -25,6 +25,7 @@ import { validCodonStart } from './codonStart';
 import type { FeatureSegment, BioFeature, RemotePart, SeqRecord } from './types';
 import { isBetweenBasesSite, isOrderLocation, SINGLE_ORDER_CDS_OMISSION } from './locationFlags';
 import { expandedRemoteParts, expandedWrittenOrder, keptWrittenOrder } from './featureEnvelope';
+import { proteinBondEndpoints } from './proteinBond';
 
 export { splitWrapAround } from './featureParts';
 
@@ -267,6 +268,20 @@ export function sliceRecordsBySelection(
 
     const slicedFeatures = record.features
       .map(original => {
+        if (record.moleculeType === 'protein' && original.locationString) {
+          const endpoints = proteinBondEndpoints(original.locationString);
+          if (endpoints) {
+            const offset = Math.max(0, selStart);
+            if (endpoints.some(point => point <= offset || point > Math.min(selEnd, seq.length))) {
+              losses.push({ ...selectionFeature(record, original), reason: `Bond ${original.locationString} omitted because every endpoint must be selected` });
+              return null;
+            }
+            if (offset === 0) return original;
+            const rebased = endpoints.map(point => point - offset);
+            const segment = { start: rebased[0] - 1, end: rebased[0] };
+            return { ...original, ...segment, segments: [segment], locationString: `bond(${rebased.join(',')})` };
+          }
+        }
         if (unchangedCircle) {
           const stored = original.segments?.length ? original.segments : [original];
           // A wrap with an empty origin-side piece is a single linear interval (LOC-6).

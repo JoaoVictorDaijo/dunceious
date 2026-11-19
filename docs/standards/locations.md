@@ -298,3 +298,7 @@ defines the endpoints as residues connected by a chemical bond. The
 writes the second point when available. Import checks each residue position against the protein
 length. The first residue anchors the glyph and the retained descriptor carries the bond through
 GenBank export and project reopen.
+
+A selection export keeps a local bond only when every recorded endpoint is selected. It rebases
+all retained endpoints to the selection and names any omitted bond in the same notice used for
+between-base sites. This applies to project JSON and GenPept selection exports.

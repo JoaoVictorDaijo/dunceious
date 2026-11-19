@@ -19,7 +19,13 @@
  */
 
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
 import { processTransposition } from '@/src/domain/bio/coordinate';
+import { sliceRecordsBySelection } from '@/src/domain/bio/intervals';
+import { exportToGenBank } from '@/src/core/genbank';
+import { describeSelectionLoss } from '@/src/core/exportReport';
+import { handleBioMessage } from '@/src/workers/handlers/bio';
+import { parseProject } from '@/src/app/logic/projectFile';
 import { trackFocusTarget } from '@/src/app/logic/focusTarget';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@/src/app/testing/renderHarness';
@@ -40,12 +46,51 @@ const record: SeqRecord = { id: 'r', name: 'r', sequence: 'ACGTACGT', alignedSeq
   features: [{ type: 'gene', name: 'gapped', start: 2, end: 7, strand: 1, locationString: '3..7',
     segments: [{ start: 2, end: 7 }] }] };
 
-function setup(rows: SeqRecord[] = [record, { ...record, id: 'other' }], log = vi.fn()) {
-  return renderHook(() => useFileHandlers({ current: null }, rows, { start: 3, end: 8, recordIds: ['r'] }, {},
+function setup(rows: SeqRecord[] = [record, { ...record, id: 'other' }], log = vi.fn(),
+  selection = { start: 3, end: 8, recordIds: ['r'] }) {
+  return renderHook(() => useFileHandlers({ current: null }, rows, selection, {},
     { showAnnotations: true, showTranslation: true, showConservation: false, alignmentComparison: DEFAULT_ALIGNMENT_COMPARISON },
     { setRecords: vi.fn(), setFeatureColors: vi.fn(), setActiveSelection: vi.fn(), setShowAnnotations: vi.fn(),
       setShowTranslation: vi.fn(), setShowConservation: vi.fn(), setAlignmentComparison: vi.fn(), setIsProcessing: vi.fn() }, log));
 }
+
+it.each(['project JSON', 'GenPept'])('reopens a VMO1 selection exported as %s after omitting the cut bond', format => {
+  const openGenPept = (content: string) => handleBioMessage({ type: 'PARSE_GENBANK', filename: 'vmo1.gp', content });
+  const imported = openGenPept(readFileSync('src/core/genbank/__tests__/fixtures/vmo1-human.gb', 'utf8'));
+  if (imported.type !== 'PARSE_SUCCESS') throw new Error('Expected the VMO1 fixture to open');
+  const sequence = 'MERGAGAKLLPLLLLLRATGFTCAQTDGRNGYTAVIEVTSGGPWGDWAWPEMCPDGFFAS';
+  const notice = expect.stringContaining('Bond Bond: Bond bond(53,86) omitted because every endpoint must be selected');
+  if (format === 'project JSON') {
+    const log = vi.fn();
+    const { result } = setup(imported.records, log, { start: 0, end: 60, recordIds: [imported.records[0].id] });
+    result.current.exportSelectionJson();
+    const opened = parseProject(vi.mocked(downloadBlob).mock.calls[0][0] as string, () => {});
+    if (!opened.ok) throw new Error(opened.message);
+    expect(opened.project.records[0].sequence).toBe(sequence);
+    expect(opened.project.records[0].features.filter(feature => feature.type === 'Bond')).toEqual([]);
+    expect(log).toHaveBeenCalledWith(notice);
+  } else {
+    const selection = sliceRecordsBySelection(imported.records, 0, 60);
+    const opened = openGenPept(exportToGenBank(selection.records).text);
+    expect(opened.type).toBe('PARSE_SUCCESS');
+    if (opened.type !== 'PARSE_SUCCESS') throw new Error('Expected the exported VMO1 selection to reopen');
+    expect(opened.records[0].sequence).toBe(sequence);
+    expect(opened.records[0].features.filter(feature => feature.type === 'Bond')).toEqual([]);
+    expect(selection.losses.map(describeSelectionLoss)).toContainEqual(notice);
+  }
+});
+
+it('rebases both endpoints when the VMO1 selection includes exactly residues 53–86', () => {
+  const imported = handleBioMessage({ type: 'PARSE_GENBANK', filename: 'vmo1.gp',
+    content: readFileSync('src/core/genbank/__tests__/fixtures/vmo1-human.gb', 'utf8') });
+  if (imported.type !== 'PARSE_SUCCESS') throw new Error('Expected the VMO1 fixture to open');
+  const { records, losses } = sliceRecordsBySelection(imported.records, 52, 86);
+  expect(records[0].features.filter(feature => feature.type === 'Bond')).toMatchObject([
+    { locationString: 'bond(1,34)', segments: [{ start: 0, end: 1 }] },
+  ]);
+  expect(losses.map(describeSelectionLoss)).not.toContainEqual(expect.stringContaining('bond(53,86)'));
+  expect(exportToGenBank(records).text).toContain('     Bond            bond(1,34)\n');
+});
 
 describe('exports with aligned annotations', () => {
   it('keeps selection JSON sequence and annotations in biological coordinates with an alignment overlay', () => {

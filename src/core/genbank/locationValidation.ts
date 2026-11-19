@@ -18,7 +18,8 @@
  * along with Dunceious.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { parseLocation, proteinBondEndpoints } from './locationParser';
+import { proteinBondEndpoints } from '@/src/domain/bio/proteinBond';
+import { parseLocation } from './locationParser';
 
 type LocationProblem = { code: string; message: string };
 /** `n.m` in a base number; an accession's `.version` (`AB123.1:`) is not a position. */
